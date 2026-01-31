@@ -7,31 +7,9 @@ import VideoPreview, { VideoPreviewHandle } from './components/preview/VideoPrev
 import Timeline from './components/timeline/Timeline';
 import { ProjectState, Track, EditorElement, ElementType, ElementProps } from './types';
 import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT } from './constants';
-import { getAssetById, getAssets } from './utils/db';
+import { getAssetById, getAssets, saveProjectState, loadProjectState } from './utils/db';
 
-const STORAGE_KEY = 'reactframe_project';
-
-// Helper to load persisted project state
-const loadPersistedProject = (): { elements: EditorElement[], tracks: Track[] } | null => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Failed to load project from localStorage:', e);
-  }
-  return null;
-};
-
-// Helper to save project state
-const saveProjectToStorage = (elements: EditorElement[], tracks: Track[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ elements, tracks }));
-  } catch (e) {
-    console.error('Failed to save project to localStorage:', e);
-  }
-};
+const OLD_STORAGE_KEY = 'reactframe_project'; // For migration from localStorage
 
 function App() {
   const previewRef = useRef<VideoPreviewHandle>(null);
@@ -49,72 +27,84 @@ function App() {
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const [isResizingRight, setIsResizingRight] = useState(false);
 
-  // Load initial state from localStorage
-  const persistedState = loadPersistedProject();
-
   const [project, setProject] = useState<ProjectState>({
     currentTime: 0,
     duration: INITIAL_DURATION,
     isPlaying: false,
     zoomLevel: 1,
-    elements: persistedState?.elements || [],
-    tracks: persistedState?.tracks || DEFAULT_TRACKS,
+    elements: [],
+    tracks: DEFAULT_TRACKS,
     selectedElementId: null,
     videoSrc: null,
     isExporting: false,
   });
 
-  // Restore blob URLs for media elements on mount
+  // Load project state from IndexedDB on mount
   useEffect(() => {
-    const restoreBlobUrls = async () => {
-      if (project.elements.length === 0) {
-        setIsRestoring(false);
-        return;
-      }
+    const loadProject = async () => {
+      try {
+        // Try to load from IndexedDB first
+        let data = await loadProjectState();
 
-      const assets = await getAssets();
-      const assetMap = new Map(assets.map(a => [a.id, a]));
-
-      setProject(prev => ({
-        ...prev,
-        elements: prev.elements.map(el => {
-          // If element has an assetId, restore the blob URL
-          if ((el as any).assetId) {
-            const asset = assetMap.get((el as any).assetId);
-            if (asset) {
-              return {
-                ...el,
-                props: {
-                  ...el.props,
-                  src: URL.createObjectURL(asset.blob)
-                }
-              };
+        // If no IndexedDB data, check for old localStorage data (migration)
+        if (!data) {
+          const oldData = localStorage.getItem(OLD_STORAGE_KEY);
+          if (oldData) {
+            data = JSON.parse(oldData);
+            // Migrate to IndexedDB
+            if (data) {
+              await saveProjectState(data.elements, data.tracks);
+              // Clear old localStorage
+              localStorage.removeItem(OLD_STORAGE_KEY);
+              console.log('Migrated project from localStorage to IndexedDB');
             }
           }
-          return el;
-        })
-      }));
+        }
+
+        if (data && (data.elements.length > 0 || data.tracks.length > 0)) {
+          // Restore blob URLs for media elements
+          const assets = await getAssets();
+          const assetMap = new Map(assets.map(a => [a.id, a]));
+
+          const restoredElements = data.elements.map(el => {
+            if ((el as any).assetId) {
+              const asset = assetMap.get((el as any).assetId);
+              if (asset) {
+                return {
+                  ...el,
+                  props: {
+                    ...el.props,
+                    src: URL.createObjectURL(asset.blob)
+                  }
+                };
+              }
+            }
+            return el;
+          });
+
+          setProject(prev => ({
+            ...prev,
+            elements: restoredElements,
+            tracks: data.tracks.length > 0 ? data.tracks : DEFAULT_TRACKS
+          }));
+        }
+      } catch (e) {
+        console.error('Failed to load project from IndexedDB:', e);
+      }
       setIsRestoring(false);
     };
 
-    restoreBlobUrls();
-  }, []); // Run only on mount
+    loadProject();
+  }, []);
 
-  // Save to localStorage whenever elements or tracks change
+  // Save to IndexedDB whenever elements or tracks change
   useEffect(() => {
     if (isRestoring) return; // Don't save while restoring
 
-    // Create a version of elements without blob URLs (store assetId instead)
-    const elementsToSave = project.elements.map(el => {
-      // Remove blob URLs as they don't persist
-      if (el.props.src?.startsWith('blob:')) {
-        const { src, ...restProps } = el.props;
-        return { ...el, props: restProps };
-      }
-      return el;
+    // Save to IndexedDB (async, non-blocking)
+    saveProjectState(project.elements, project.tracks).catch(e => {
+      console.error('Failed to save project to IndexedDB:', e);
     });
-
-    saveProjectToStorage(elementsToSave, project.tracks);
   }, [project.elements, project.tracks, isRestoring]);
 
   // Handle Theme
