@@ -36,7 +36,10 @@ const saveProjectToStorage = (elements: EditorElement[], tracks: Track[]) => {
 function App() {
   const previewRef = useRef<VideoPreviewHandle>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(PIXELS_PER_SECOND_DEFAULT);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved ? saved === 'dark' : true; // Default to dark mode
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
   const [timelineHeight, setTimelineHeight] = useState(300);
@@ -123,7 +126,13 @@ function App() {
     }
   }, [isDarkMode]);
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+  const toggleTheme = () => {
+    setIsDarkMode(prev => {
+      const newValue = !prev;
+      localStorage.setItem('theme', newValue ? 'dark' : 'light');
+      return newValue;
+    });
+  };
 
   // Handle Playback Timer
   useEffect(() => {
