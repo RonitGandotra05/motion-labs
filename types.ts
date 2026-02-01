@@ -8,6 +8,23 @@ export enum ElementType {
   AI_GENERATED = 'AI_GENERATED'
 }
 
+// Transition types for clips
+export type TransitionType = 'none' | 'fade' | 'dissolve' | 'wipe-left' | 'wipe-right' | 'wipe-up' | 'wipe-down' | 'zoom-in' | 'zoom-out';
+
+export interface Transition {
+  type: TransitionType;
+  duration: number; // seconds
+}
+
+// Timeline markers
+export interface Marker {
+  id: string;
+  time: number; // seconds
+  name: string;
+  color: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+  note?: string;
+}
+
 export interface ElementProps {
   text?: string;
   backgroundColor?: string;
@@ -56,6 +73,10 @@ export interface EditorElement {
   rotation: number;
   zIndex: number; // Layer stacking order
 
+  // Transitions
+  transitionIn?: Transition;
+  transitionOut?: Transition;
+
   props: ElementProps;
 
   // For persisting media elements across page refreshes
@@ -77,6 +98,7 @@ export interface ProjectState {
   zoomLevel: number; // pixels per second
   elements: EditorElement[];
   tracks: Track[];
+  markers: Marker[]; // Timeline markers
   selectedElementId: string | null;
   videoSrc: string | null; // Deprecated in favor of elements, but kept for compatibility if needed, though we will move to track-based video
   isExporting: boolean;
@@ -88,3 +110,4 @@ export interface GeneratedComponentConfig {
   props: ElementProps;
   name: string;
 }
+

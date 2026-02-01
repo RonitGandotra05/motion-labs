@@ -1,5 +1,5 @@
 import React from 'react';
-import { EditorElement, ElementType } from '../../types';
+import { EditorElement, ElementType, TransitionType, Transition } from '../../types';
 
 interface PropertiesPanelProps {
     element: EditorElement | null;
@@ -71,6 +71,89 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </button>
                         </div>
                         <p className="text-[10px] text-gray-400">Current layer: {element.zIndex ?? 0}</p>
+                    </div>
+                )}
+
+                {/* Transitions - DaVinci Style */}
+                {element.type !== ElementType.AUDIO && (
+                    <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+                        <label className="text-xs text-gray-500 uppercase font-bold">⚡ Transitions</label>
+
+                        {/* Transition In */}
+                        <div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Transition In</span>
+                            <select
+                                value={element.transitionIn?.type ?? 'none'}
+                                onChange={(e) => onUpdate(element.id, {
+                                    transitionIn: {
+                                        type: e.target.value as TransitionType,
+                                        duration: element.transitionIn?.duration ?? 0.5
+                                    }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                            >
+                                <option value="none">None</option>
+                                <option value="fade">Fade In</option>
+                                <option value="dissolve">Dissolve</option>
+                                <option value="wipe-left">Wipe Left</option>
+                                <option value="wipe-right">Wipe Right</option>
+                                <option value="wipe-up">Wipe Up</option>
+                                <option value="wipe-down">Wipe Down</option>
+                                <option value="zoom-in">Zoom In</option>
+                                <option value="zoom-out">Zoom Out</option>
+                            </select>
+                            {element.transitionIn && element.transitionIn.type !== 'none' && (
+                                <div className="mt-2">
+                                    <span className="text-[10px] text-gray-400">Duration ({element.transitionIn.duration}s)</span>
+                                    <input
+                                        type="range" min="0.1" max="2" step="0.1"
+                                        value={element.transitionIn.duration}
+                                        onChange={(e) => onUpdate(element.id, {
+                                            transitionIn: { ...element.transitionIn!, duration: Number(e.target.value) }
+                                        })}
+                                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Transition Out */}
+                        <div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Transition Out</span>
+                            <select
+                                value={element.transitionOut?.type ?? 'none'}
+                                onChange={(e) => onUpdate(element.id, {
+                                    transitionOut: {
+                                        type: e.target.value as TransitionType,
+                                        duration: element.transitionOut?.duration ?? 0.5
+                                    }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                            >
+                                <option value="none">None</option>
+                                <option value="fade">Fade Out</option>
+                                <option value="dissolve">Dissolve</option>
+                                <option value="wipe-left">Wipe Left</option>
+                                <option value="wipe-right">Wipe Right</option>
+                                <option value="wipe-up">Wipe Up</option>
+                                <option value="wipe-down">Wipe Down</option>
+                                <option value="zoom-in">Zoom In</option>
+                                <option value="zoom-out">Zoom Out</option>
+                            </select>
+                            {element.transitionOut && element.transitionOut.type !== 'none' && (
+                                <div className="mt-2">
+                                    <span className="text-[10px] text-gray-400">Duration ({element.transitionOut.duration}s)</span>
+                                    <input
+                                        type="range" min="0.1" max="2" step="0.1"
+                                        value={element.transitionOut.duration}
+                                        onChange={(e) => onUpdate(element.id, {
+                                            transitionOut: { ...element.transitionOut!, duration: Number(e.target.value) }
+                                        })}
+                                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

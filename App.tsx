@@ -5,9 +5,10 @@ import SettingsPanel from './components/panels/SettingsPanel';
 import PropertiesPanel from './components/panels/PropertiesPanel';
 import VideoPreview, { VideoPreviewHandle } from './components/preview/VideoPreview';
 import Timeline from './components/timeline/Timeline';
-import { ProjectState, Track, EditorElement, ElementType, ElementProps } from './types';
+import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker } from './types';
 import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT } from './constants';
 import { getAssetById, getAssets, saveProjectState, loadProjectState } from './utils/db';
+import { historyManager, HistoryState } from './utils/history';
 
 const OLD_STORAGE_KEY = 'reactframe_project'; // For migration from localStorage
 
@@ -34,6 +35,7 @@ function App() {
     zoomLevel: 1,
     elements: [],
     tracks: DEFAULT_TRACKS,
+    markers: [], // Timeline markers
     selectedElementId: null,
     videoSrc: null,
     isExporting: false,
@@ -194,6 +196,66 @@ function App() {
       document.body.style.userSelect = '';
     };
   }, [isResizingTimeline, isResizingLeft, isResizingRight]);
+
+  // Save current state to history (call before making changes)
+  const saveToHistory = useCallback(() => {
+    historyManager.push({
+      elements: project.elements,
+      tracks: project.tracks,
+      markers: project.markers
+    });
+  }, [project.elements, project.tracks, project.markers]);
+
+  // Undo/Redo handlers
+  const handleUndo = useCallback(() => {
+    const previousState = historyManager.undo({
+      elements: project.elements,
+      tracks: project.tracks,
+      markers: project.markers
+    });
+    if (previousState) {
+      setProject(prev => ({
+        ...prev,
+        elements: previousState.elements,
+        tracks: previousState.tracks,
+        markers: previousState.markers,
+        selectedElementId: null
+      }));
+    }
+  }, [project.elements, project.tracks, project.markers]);
+
+  const handleRedo = useCallback(() => {
+    const nextState = historyManager.redo({
+      elements: project.elements,
+      tracks: project.tracks,
+      markers: project.markers
+    });
+    if (nextState) {
+      setProject(prev => ({
+        ...prev,
+        elements: nextState.elements,
+        tracks: nextState.tracks,
+        markers: nextState.markers,
+        selectedElementId: null
+      }));
+    }
+  }, [project.elements, project.tracks, project.markers]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   const handleSeek = useCallback((time: number) => {
     setProject(prev => ({ ...prev, currentTime: time }));

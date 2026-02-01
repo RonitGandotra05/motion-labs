@@ -229,20 +229,89 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
     const isSelected = selectedElementId === el.id;
 
+    // Calculate transition effects
+    const elapsedTime = currentTime - el.startTime;
+    const remainingTime = (el.startTime + el.duration) - currentTime;
+    let transitionOpacity = 1;
+    let transitionTransform = '';
+
+    // Transition In
+    if (el.transitionIn && el.transitionIn.type !== 'none' && elapsedTime < el.transitionIn.duration) {
+      const progress = elapsedTime / el.transitionIn.duration;
+      switch (el.transitionIn.type) {
+        case 'fade':
+        case 'dissolve':
+          transitionOpacity = progress;
+          break;
+        case 'zoom-in':
+          transitionOpacity = progress;
+          transitionTransform = `scale(${0.5 + 0.5 * progress})`;
+          break;
+        case 'zoom-out':
+          transitionOpacity = progress;
+          transitionTransform = `scale(${1.5 - 0.5 * progress})`;
+          break;
+        case 'wipe-left':
+          transitionTransform = `translateX(${(1 - progress) * 100}%)`;
+          break;
+        case 'wipe-right':
+          transitionTransform = `translateX(${(progress - 1) * 100}%)`;
+          break;
+        case 'wipe-up':
+          transitionTransform = `translateY(${(1 - progress) * 100}%)`;
+          break;
+        case 'wipe-down':
+          transitionTransform = `translateY(${(progress - 1) * 100}%)`;
+          break;
+      }
+    }
+
+    // Transition Out
+    if (el.transitionOut && el.transitionOut.type !== 'none' && remainingTime < el.transitionOut.duration) {
+      const progress = remainingTime / el.transitionOut.duration;
+      switch (el.transitionOut.type) {
+        case 'fade':
+        case 'dissolve':
+          transitionOpacity = Math.min(transitionOpacity, progress);
+          break;
+        case 'zoom-in':
+          transitionOpacity = Math.min(transitionOpacity, progress);
+          transitionTransform = `scale(${1.5 - 0.5 * progress})`;
+          break;
+        case 'zoom-out':
+          transitionOpacity = Math.min(transitionOpacity, progress);
+          transitionTransform = `scale(${0.5 + 0.5 * progress})`;
+          break;
+        case 'wipe-left':
+          transitionTransform = `translateX(${(progress - 1) * 100}%)`;
+          break;
+        case 'wipe-right':
+          transitionTransform = `translateX(${(1 - progress) * 100}%)`;
+          break;
+        case 'wipe-up':
+          transitionTransform = `translateY(${(progress - 1) * 100}%)`;
+          break;
+        case 'wipe-down':
+          transitionTransform = `translateY(${(1 - progress) * 100}%)`;
+          break;
+      }
+    }
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${el.x}%`,
       top: `${el.y}%`,
       width: `${el.width}%`,
       height: `${el.height}%`,
-      transform: `rotate(${el.rotation}deg)`,
+      transform: `rotate(${el.rotation}deg) ${transitionTransform}`.trim(),
       cursor: isSelected ? 'move' : 'default',
       zIndex: 10 + (el.zIndex ?? 0),
       border: isSelected ? '2px solid #3b82f6' : 'none',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      opacity: transitionOpacity,
     };
 
     const contentStyle: React.CSSProperties = {
