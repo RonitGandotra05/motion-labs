@@ -72,6 +72,8 @@ export interface EditorElement {
   height: number; // percentage
   rotation: number;
   zIndex: number; // Layer stacking order
+  flipX?: boolean; // Flip horizontally
+  flipY?: boolean; // Flip vertically
 
   // Transitions
   transitionIn?: Transition;

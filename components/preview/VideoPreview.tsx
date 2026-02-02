@@ -303,7 +303,12 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       top: `${el.y}%`,
       width: `${el.width}%`,
       height: `${el.height}%`,
-      transform: `rotate(${el.rotation}deg) ${transitionTransform}`.trim(),
+      transform: [
+        `rotate(${el.rotation}deg)`,
+        transitionTransform,
+        el.flipX ? 'scaleX(-1)' : '',
+        el.flipY ? 'scaleY(-1)' : ''
+      ].filter(Boolean).join(' '),
       cursor: isSelected ? 'move' : 'default',
       zIndex: 10 + (el.zIndex ?? 0),
       border: isSelected ? '2px solid #3b82f6' : 'none',

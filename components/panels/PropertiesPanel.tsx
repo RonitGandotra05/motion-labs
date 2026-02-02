@@ -240,6 +240,49 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 <input type="number" value={Math.round(element.rotation)} onChange={(e) => handleGeometryChange('rotation', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
                             </div>
                         </div>
+
+                        {/* Position Presets */}
+                        <div className="pt-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Position Presets</span>
+                            <div className="grid grid-cols-3 gap-1 mt-1">
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↖ Top-L</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↑ Top</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↗ Top-R</button>
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 50 - element.height / 2 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">← Left</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 50 - element.height / 2 })} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded text-[10px] text-blue-600 dark:text-blue-400 font-medium">⊙ Center</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 50 - element.height / 2 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">→ Right</button>
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↙ Bot-L</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↓ Bottom</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↘ Bot-R</button>
+                            </div>
+                        </div>
+
+                        {/* Fit to Frame */}
+                        <button
+                            onClick={() => onUpdate(element.id, { x: 0, y: 0, width: 100, height: 100 })}
+                            className="w-full py-1.5 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900 hover:bg-green-200 dark:hover:bg-green-900 rounded text-xs transition flex items-center justify-center space-x-1"
+                        >
+                            <span>⛶</span>
+                            <span>Fit to Frame (100%)</span>
+                        </button>
+
+                        {/* Flip Controls */}
+                        <div className="flex gap-2 pt-1">
+                            <button
+                                onClick={() => onUpdate(element.id, { flipX: !element.flipX })}
+                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipX ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            >
+                                <span>↔</span>
+                                <span>Flip H</span>
+                            </button>
+                            <button
+                                onClick={() => onUpdate(element.id, { flipY: !element.flipY })}
+                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipY ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            >
+                                <span>↕</span>
+                                <span>Flip V</span>
+                            </button>
+                        </div>
                     </div>
                 )}
 
