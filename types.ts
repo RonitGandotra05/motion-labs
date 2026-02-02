@@ -5,7 +5,8 @@ export enum ElementType {
   TEXT = 'TEXT',
   SHAPE = 'SHAPE',
   IMAGE = 'IMAGE',
-  AI_GENERATED = 'AI_GENERATED'
+  AI_GENERATED = 'AI_GENERATED',
+  ADJUSTMENT = 'ADJUSTMENT' // DaVinci-style adjustment layer
 }
 
 // Transition types for clips
@@ -73,6 +74,17 @@ export interface ElementProps {
   grayscale?: number; // 0-1
   sepia?: number; // 0-1
   hueRotate?: number; // degrees 0-360
+
+  // Color Wheels (DaVinci-style Lift/Gamma/Gain)
+  liftR?: number; // -1 to 1, shadows red
+  liftG?: number; // -1 to 1, shadows green
+  liftB?: number; // -1 to 1, shadows blue
+  gammaR?: number; // -1 to 1, midtones red
+  gammaG?: number; // -1 to 1, midtones green
+  gammaB?: number; // -1 to 1, midtones blue
+  gainR?: number; // -1 to 1, highlights red
+  gainG?: number; // -1 to 1, highlights green
+  gainB?: number; // -1 to 1, highlights blue
 }
 
 export interface EditorElement {
