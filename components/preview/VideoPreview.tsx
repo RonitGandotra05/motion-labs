@@ -328,11 +328,23 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       width: '100%',
       height: '100%',
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: el.type === ElementType.TEXT ? 'flex-start' : 'center',
+      justifyContent: el.props.textAlign || 'center',
       overflow: 'hidden',
       border: el.props.borderWidth ? `${el.props.borderWidth}px solid ${el.props.borderColor || 'black'}` : 'none',
       pointerEvents: 'none',
+      // Text styling
+      fontFamily: el.props.fontFamily || 'Inter, sans-serif',
+      fontWeight: el.props.fontWeight || 400,
+      textAlign: el.props.textAlign || 'center',
+      letterSpacing: el.props.letterSpacing ? `${el.props.letterSpacing}px` : undefined,
+      lineHeight: el.props.lineHeight || 1.2,
+      // Text shadow
+      textShadow: el.props.textShadowColor ?
+        `${el.props.textShadowX ?? 2}px ${el.props.textShadowY ?? 2}px ${el.props.textShadowBlur ?? 0}px ${el.props.textShadowColor}` : undefined,
+      // Drop shadow (box-shadow)
+      boxShadow: el.props.shadowColor ?
+        `${el.props.shadowX ?? 4}px ${el.props.shadowY ?? 4}px ${el.props.shadowBlur ?? 10}px ${el.props.shadowColor}` : undefined,
       // DaVinci-style CSS Filters
       filter: (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) ? [
         el.props.blur ? `blur(${el.props.blur}px)` : '',

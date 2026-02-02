@@ -38,6 +38,25 @@ export interface ElementProps {
   volume?: number; // 0-1
   isMuted?: boolean;
 
+  // Text styling
+  fontFamily?: string;
+  fontWeight?: 300 | 400 | 500 | 600 | 700 | 800;
+  textAlign?: 'left' | 'center' | 'right';
+  letterSpacing?: number; // pixels
+  lineHeight?: number; // multiplier
+
+  // Text shadow
+  textShadowColor?: string;
+  textShadowBlur?: number;
+  textShadowX?: number;
+  textShadowY?: number;
+
+  // Drop shadow (all visual elements)
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowX?: number;
+  shadowY?: number;
+
   // New properties for Custom AI Components
   html?: string;
   customCss?: string;
