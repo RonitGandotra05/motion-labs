@@ -1,4 +1,4 @@
-# ReactFrame Pro
+# Motion Labs
 
 A browser-based, React + TypeScript video editor prototype built with Vite. It includes a timeline editor, layer/track management, a preview canvas, and basic asset handling to explore non-linear editing workflows in the browser.
 

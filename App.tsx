@@ -782,7 +782,7 @@ function App() {
           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shadow-md">
             <LayersIcon className="text-white" />
           </div>
-          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">ReactFrame <span className="text-blue-600 dark:text-blue-500">Pro</span></h1>
+          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">Motion <span className="text-blue-600 dark:text-blue-500">Labs</span></h1>
         </div>
         <div className="flex items-center space-x-4">
           <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors">
