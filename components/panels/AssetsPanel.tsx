@@ -415,6 +415,10 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
                   <SquareIcon className="w-5 h-5 mb-1 text-green-500 dark:text-green-400" />
                   <span className="text-xs text-gray-700 dark:text-gray-200">Shape</span>
                 </button>
+                <button onClick={() => onAddElement(ElementType.ADJUSTMENT)} className="flex flex-col items-center p-3 bg-white dark:bg-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-sm transition-colors col-span-2">
+                  <LayersIcon className="w-5 h-5 mb-1 text-orange-500 dark:text-orange-400" />
+                  <span className="text-xs text-gray-700 dark:text-gray-200">Adjustment Layer</span>
+                </button>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700 transition-colors mt-3">
                 <h4 className="text-[10px] font-bold text-gray-400 mb-1 uppercase">AI Animated Components</h4>
