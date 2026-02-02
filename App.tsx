@@ -27,6 +27,7 @@ function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const [isResizingRight, setIsResizingRight] = useState(false);
+  const [rippleEditMode, setRippleEditMode] = useState(false); // DaVinci-style ripple edit
 
   const [project, setProject] = useState<ProjectState>({
     currentTime: 0,
@@ -421,6 +422,12 @@ function App() {
         name = customProps?.name || "Image";
         defaultProps = { src: customProps?.src };
         width = 100; height = 100; // Full size by default
+        break;
+      case ElementType.ADJUSTMENT:
+        name = "Adjustment Layer";
+        defaultProps = { opacity: 1, brightness: 1, contrast: 1, saturation: 1 };
+        width = 100; height = 100; // Full frame
+        duration = 10;
         break;
     }
 
@@ -889,6 +896,8 @@ function App() {
           onAddAsset={handleAddAssetToTrack}
           onInsertTrack={handleInsertTrack}
           onDeleteTrack={handleDeleteTrack}
+          rippleEditMode={rippleEditMode}
+          onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
         />
       </div>
 
