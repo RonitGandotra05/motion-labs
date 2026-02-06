@@ -97,6 +97,19 @@ export interface ElementProps {
 
   // LUT preset (for quick color grading)
   lutPreset?: 'none' | 'cinematic' | 'vintage' | 'cool' | 'warm' | 'noir' | 'teal-orange' | 'bleach-bypass';
+
+  // Audio fade controls (in seconds)
+  fadeIn?: number; // 0-5 seconds
+  fadeOut?: number; // 0-5 seconds
+
+  // Preserve pitch when changing speed (audio/video)
+  preservePitch?: boolean;
+
+  // Video stabilization
+  isStabilized?: boolean;
+
+  // Freeze frame mode
+  isFreezeFrame?: boolean;
 }
 
 export interface EditorElement {
