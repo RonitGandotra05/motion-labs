@@ -246,6 +246,60 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 <span>Split Audio to New Layer</span>
                             </button>
                         )}
+
+                        {/* Audio Fade Controls */}
+                        <div className="space-y-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Fade In ({element.props.fadeIn ?? 0}s)</span>
+                            <input
+                                type="range" min="0" max="5" step="0.1"
+                                value={element.props.fadeIn ?? 0}
+                                onChange={(e) => handleChange('fadeIn', Number(e.target.value))}
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Fade Out ({element.props.fadeOut ?? 0}s)</span>
+                            <input
+                                type="range" min="0" max="5" step="0.1"
+                                value={element.props.fadeOut ?? 0}
+                                onChange={(e) => handleChange('fadeOut', Number(e.target.value))}
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                            />
+                        </div>
+
+                        {/* Preserve Pitch Toggle */}
+                        <button
+                            onClick={() => handleChange('preservePitch', !element.props.preservePitch)}
+                            className={`w-full py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.props.preservePitch ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                        >
+                            <span>🎵</span>
+                            <span>Preserve Pitch</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* Video-only Controls */}
+                {element.type === ElementType.VIDEO && (
+                    <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+                        <label className="text-xs text-gray-500 uppercase font-bold">🎬 Video Effects</label>
+
+                        {/* Stabilization Toggle */}
+                        <button
+                            onClick={() => handleChange('isStabilized', !element.props.isStabilized)}
+                            className={`w-full py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.props.isStabilized ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                        >
+                            <span>📷</span>
+                            <span>Stabilization</span>
+                        </button>
+
+                        {/* Freeze Frame Toggle */}
+                        <button
+                            onClick={() => handleChange('isFreezeFrame', !element.props.isFreezeFrame)}
+                            className={`w-full py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.props.isFreezeFrame ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                        >
+                            <span>❄️</span>
+                            <span>Freeze Frame</span>
+                        </button>
                     </div>
                 )}
 
