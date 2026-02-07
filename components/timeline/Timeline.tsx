@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Track, EditorElement } from '../../types';
 import TimelineTrack from './TimelineTrack';
-import { ScissorsIcon } from '../ui/Icons';
+import { ScissorsIcon, ZoomInIcon, ZoomOutIcon, MagnetIcon, CompressIcon, FitIcon } from '../ui/Icons';
 
 interface TimelineProps {
   tracks: Track[];
@@ -20,6 +20,9 @@ interface TimelineProps {
   onDeleteTrack?: (trackId: number) => void;
   rippleEditMode?: boolean;
   onToggleRippleEdit?: () => void;
+  snapEnabled?: boolean;
+  onToggleSnap?: () => void;
+  onCloseGaps?: () => void;
 }
 
 type DragMode = 'MOVE' | 'RESIZE_L' | 'RESIZE_R';
@@ -43,7 +46,10 @@ const Timeline: React.FC<TimelineProps> = ({
   onInsertTrack,
   onDeleteTrack,
   rippleEditMode = false,
-  onToggleRippleEdit
+  onToggleRippleEdit,
+  snapEnabled = true,
+  onToggleSnap,
+  onCloseGaps
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,8 +85,8 @@ const Timeline: React.FC<TimelineProps> = ({
 
   // Helper: Snap a time value to nearest snap point if within threshold
   const snapToNearestPoint = useCallback((time: number, snapPoints: number[], shiftPressed: boolean): { snapped: number; didSnap: boolean } => {
-    if (shiftPressed) {
-      return { snapped: time, didSnap: false }; // Shift disables snapping
+    if (shiftPressed || !snapEnabled) {
+      return { snapped: time, didSnap: false }; // Shift or snap disabled
     }
 
     const thresholdTime = SNAP_THRESHOLD_PX / pixelsPerSecond;
@@ -321,16 +327,70 @@ const Timeline: React.FC<TimelineProps> = ({
               <span>Ripple</span>
             </button>
           )}
+
+          {/* Snap Toggle */}
+          {onToggleSnap && (
+            <button
+              onClick={onToggleSnap}
+              className={`flex items-center space-x-1 px-2 py-1 rounded transition ${snapEnabled ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+              title={snapEnabled ? "Snapping On (click to disable)" : "Snapping Off (click to enable)"}
+            >
+              <MagnetIcon className="w-4 h-4" />
+              <span>Snap</span>
+            </button>
+          )}
+
+          {/* Close Gaps */}
+          {onCloseGaps && (
+            <button
+              onClick={onCloseGaps}
+              className="flex items-center space-x-1 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1 rounded transition text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white"
+              title="Close all gaps between clips"
+            >
+              <CompressIcon className="w-4 h-4" />
+              <span>Close Gaps</span>
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500">Zoom</span>
+        {/* Zoom Controls */}
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
+            title="Zoom Out (-)"
+          >
+            <ZoomOutIcon className="w-4 h-4" />
+          </button>
           <input
             type="range" min="10" max="200"
             value={pixelsPerSecond}
             onChange={(e) => setPixelsPerSecond(Number(e.target.value))}
-            className="w-24 h-1 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            className="w-20 h-1 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
           />
+          <button
+            onClick={() => setPixelsPerSecond(Math.min(200, pixelsPerSecond + 20))}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
+            title="Zoom In (+)"
+          >
+            <ZoomInIcon className="w-4 h-4" />
+          </button>
+          <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+          <button
+            onClick={() => {
+              // Fit all elements in view
+              if (elements.length > 0) {
+                const maxEndTime = Math.max(...elements.map(el => el.startTime + el.duration));
+                const containerWidth = containerRef.current?.clientWidth || 800;
+                const newPPS = Math.max(10, Math.min(200, (containerWidth - 150) / maxEndTime));
+                setPixelsPerSecond(Math.round(newPPS));
+              }
+            }}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
+            title="Fit to Window (Shift+Z)"
+          >
+            <FitIcon className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
