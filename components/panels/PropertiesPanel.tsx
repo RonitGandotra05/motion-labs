@@ -247,6 +247,32 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </button>
                         )}
 
+                        {/* Audio Ducking Controls */}
+                        <div className="pt-2 pb-2 border-b border-gray-100 dark:border-gray-800 mb-2">
+                            <label className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    checked={element.props.ducking || false}
+                                    onChange={(e) => handleChange('ducking', e.target.checked)}
+                                    className="rounded bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Audio Ducking (Voiceover)</span>
+                            </label>
+                            {element.props.ducking && (
+                                <div className="mt-2 pl-4">
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">Ducking Level ({Math.round((element.props.duckingThreshold ?? 0.2) * 100)}%)</span>
+                                    <input
+                                        type="range" min="0" max="1" step="0.05"
+                                        value={element.props.duckingThreshold ?? 0.2}
+                                        onChange={(e) => handleChange('duckingThreshold', Number(e.target.value))}
+                                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
+                                        title="Volume level of background tracks when this track is playing"
+                                    />
+                                    <p className="text-[9px] text-gray-400 mt-0.5">Background volume during this clip</p>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Audio Fade Controls */}
                         <div className="space-y-2">
                             <span className="text-xs text-gray-500 dark:text-gray-400">Fade In ({element.props.fadeIn ?? 0}s)</span>

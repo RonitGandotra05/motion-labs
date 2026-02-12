@@ -69,7 +69,25 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
           } else if (!isPlaying && !el.paused) {
             el.pause();
           }
-          el.volume = element.props.volume ?? 1;
+
+          let effectiveVolume = element.props.volume ?? 1;
+
+          // Audio Ducking Logic
+          // Check if any *other* currently playing element has ducking enabled
+          const activeDuckingSource = elements.find(e =>
+            e.id !== element.id &&
+            (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
+            e.props.ducking &&
+            currentTime >= e.startTime &&
+            currentTime <= e.startTime + e.duration
+          );
+
+          if (activeDuckingSource) {
+            // Apply ducking threshold (default 0.2 if not set)
+            effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
+          }
+
+          el.volume = effectiveVolume;
           el.muted = element.props.isMuted ?? false;
           // Apply playback rate (speed control)
           el.playbackRate = element.props.playbackRate ?? 1;
