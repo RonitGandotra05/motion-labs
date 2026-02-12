@@ -410,9 +410,51 @@ const Timeline: React.FC<TimelineProps> = ({
             ref={rulerRef}
             className="h-8 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 relative cursor-pointer transition-colors"
             onMouseDown={handleRulerMouseDown}
+            onDoubleClick={(e) => {
+              if (onAddMarker && rulerRef.current) {
+                const rect = rulerRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left - 96;
+                const time = Math.max(0, x / pixelsPerSecond);
+                onAddMarker(time);
+              }
+            }}
           >
             <div className="w-24 h-full border-r border-gray-200 dark:border-gray-700 absolute left-0 bg-gray-100 dark:bg-gray-800 z-20 transition-colors"></div>
-            <div className="absolute left-24 right-0 top-0 bottom-0">{rulerTicks}</div>
+            <div className="absolute left-24 right-0 top-0 bottom-0">
+              {rulerTicks}
+              {/* Markers */}
+              {markers.map(marker => (
+                <div
+                  key={marker.id}
+                  className={`absolute top-0 w-3 h-3 -ml-1.5 z-30 cursor-pointer hover:scale-125 transition-transform`}
+                  style={{
+                    left: marker.time * pixelsPerSecond,
+                    backgroundColor: marker.color,
+                    clipPath: 'polygon(50% 100%, 0% 0%, 100% 0%)'
+                  }}
+                  title={`${marker.name} at ${formatTime(marker.time)}`}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onUpdateMarker) {
+                      const newName = prompt("Edit Marker Name:", marker.name);
+                      if (newName !== null) {
+                        onUpdateMarker(marker.id, { name: newName });
+                      }
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onDeleteMarker && confirm(`Delete marker "${marker.name}"?`)) {
+                      onDeleteMarker(marker.id);
+                    }
+                  }}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Tracks */}
@@ -478,7 +520,7 @@ const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
