@@ -69,7 +69,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
     e.stopPropagation();
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files);
+      const files = Array.from(e.dataTransfer.files) as File[];
 
       for (const file of files) {
         let type = ElementType.IMAGE;

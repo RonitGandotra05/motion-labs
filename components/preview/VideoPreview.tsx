@@ -41,7 +41,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
   // Audio Context Ref
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioSourcesRef = useRef<WeakMap<HTMLMediaElement, MediaElementSourceNode>>(new WeakMap());
+  const audioSourcesRef = useRef<WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>>(new WeakMap());
   const audioNodesRef = useRef<Map<string, { hp: BiquadFilterNode; lp: BiquadFilterNode; gain: GainNode }>>(new Map());
 
   useImperativeHandle(ref, () => ({
@@ -400,6 +400,44 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       }
     }
 
+    // Text Animation Logic
+    let textContent = el.props.text;
+    let textAnimOpacity = 1;
+    let textAnimTransform = '';
+    let textAnimBlur = 0;
+
+    if (el.type === ElementType.TEXT && el.props.textAnimation && el.props.textAnimation !== 'none') {
+      const animDuration = el.props.animationDuration || 1;
+      if (elapsedTime < animDuration) {
+        const p = elapsedTime / animDuration;
+        const easeOut = 1 - Math.pow(1 - p, 3); // Cubic ease out
+
+        switch (el.props.textAnimation) {
+          case 'typewriter':
+            if (textContent) {
+              const len = Math.floor(textContent.length * p);
+              textContent = textContent.slice(0, len);
+            }
+            break;
+          case 'slide-up':
+            textAnimTransform = `translateY(${(1 - easeOut) * 50}px)`; // Slide up 50px
+            textAnimOpacity = easeOut;
+            break;
+          case 'fade-in':
+            textAnimOpacity = p;
+            break;
+          case 'scale-up':
+            textAnimTransform = `scale(${easeOut})`;
+            textAnimOpacity = p;
+            break;
+          case 'blur-in':
+            textAnimBlur = (1 - p) * 20;
+            textAnimOpacity = p;
+            break;
+        }
+      }
+    }
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${el.x}%`,
@@ -427,7 +465,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       color: el.props.color || 'white',
       borderRadius: el.props.borderRadius ? `${el.props.borderRadius}px` : '0',
       fontSize: el.props.fontSize ? `${el.props.fontSize}px` : '16px',
-      opacity: el.props.opacity ?? 1,
+      opacity: (el.props.opacity ?? 1) * textAnimOpacity,
       width: '100%',
       height: '100%',
       display: 'flex',
@@ -442,22 +480,25 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       textAlign: el.props.textAlign || 'center',
       letterSpacing: el.props.letterSpacing ? `${el.props.letterSpacing}px` : undefined,
       lineHeight: el.props.lineHeight || 1.2,
+      // Text Animation Transform
+      transform: textAnimTransform,
       // Text shadow
       textShadow: el.props.textShadowColor ?
         `${el.props.textShadowX ?? 2}px ${el.props.textShadowY ?? 2}px ${el.props.textShadowBlur ?? 0}px ${el.props.textShadowColor}` : undefined,
       // Drop shadow (box-shadow)
       boxShadow: el.props.shadowColor ?
         `${el.props.shadowX ?? 4}px ${el.props.shadowY ?? 4}px ${el.props.shadowBlur ?? 10}px ${el.props.shadowColor}` : undefined,
-      // DaVinci-style CSS Filters
-      filter: (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) ? [
-        el.props.blur ? `blur(${el.props.blur}px)` : '',
-        el.props.brightness !== undefined && el.props.brightness !== 1 ? `brightness(${el.props.brightness})` : '',
-        el.props.contrast !== undefined && el.props.contrast !== 1 ? `contrast(${el.props.contrast})` : '',
-        el.props.saturation !== undefined && el.props.saturation !== 1 ? `saturate(${el.props.saturation})` : '',
-        el.props.grayscale ? `grayscale(${el.props.grayscale})` : '',
-        el.props.sepia ? `sepia(${el.props.sepia})` : '',
-        el.props.hueRotate ? `hue-rotate(${el.props.hueRotate}deg)` : '',
-      ].filter(Boolean).join(' ') || undefined : undefined,
+      // DaVinci-style CSS Filters + Text Animation Blur
+      filter: [
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.blur ? `blur(${el.props.blur}px)` : '',
+        textAnimBlur > 0 ? `blur(${textAnimBlur}px)` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.brightness !== undefined && el.props.brightness !== 1 ? `brightness(${el.props.brightness})` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.contrast !== undefined && el.props.contrast !== 1 ? `contrast(${el.props.contrast})` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.saturation !== undefined && el.props.saturation !== 1 ? `saturate(${el.props.saturation})` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.grayscale ? `grayscale(${el.props.grayscale})` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.sepia ? `sepia(${el.props.sepia})` : '',
+        (el.type === ElementType.VIDEO || el.type === ElementType.IMAGE) && el.props.hueRotate ? `hue-rotate(${el.props.hueRotate}deg)` : '',
+      ].filter(Boolean).join(' ') || undefined,
       // Blend Mode
       mixBlendMode: el.props.blendMode as React.CSSProperties['mixBlendMode'] || undefined,
     };
@@ -504,7 +545,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
         {(el.type === ElementType.TEXT || el.type === ElementType.SHAPE) && (
           <div style={contentStyle} className="p-2 whitespace-pre-wrap text-center">
-            {el.props.text}
+            {textContent}
           </div>
         )}
 

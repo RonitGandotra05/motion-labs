@@ -886,6 +886,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         <option value="Times New Roman">Times New Roman</option>
                                         <option value="Arial">Arial</option>
                                         <option value="Verdana">Verdana</option>
+                                        <option value="Merriweather">Merriweather</option>
+                                        <option value="Nunito">Nunito</option>
+                                        <option value="Work Sans">Work Sans</option>
+                                        <option value="Fira Code">Fira Code (Monospace)</option>
                                     </select>
                                 </div>
 
@@ -904,6 +908,34 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         <option value={700}>Bold (700)</option>
                                         <option value={800}>Extra Bold (800)</option>
                                     </select>
+                                </div>
+
+                                {/* Text Animation */}
+                                <div>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">Animation (In)</span>
+                                    <select
+                                        value={element.props.textAnimation || 'none'}
+                                        onChange={(e) => handleChange('textAnimation', e.target.value)}
+                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                    >
+                                        <option value="none">None</option>
+                                        <option value="typewriter">Typewriter</option>
+                                        <option value="slide-up">Slide Up</option>
+                                        <option value="fade-in">Fade In</option>
+                                        <option value="scale-up">Scale Up</option>
+                                        <option value="blur-in">Blur In</option>
+                                    </select>
+                                    {element.props.textAnimation && element.props.textAnimation !== 'none' && (
+                                        <div className="mt-2">
+                                            <span className="text-[10px] text-gray-400">Duration ({element.props.animationDuration ?? 1}s)</span>
+                                            <input
+                                                type="range" min="0.1" max="5" step="0.1"
+                                                value={element.props.animationDuration ?? 1}
+                                                onChange={(e) => handleChange('animationDuration', Number(e.target.value))}
+                                                className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Text Alignment */}

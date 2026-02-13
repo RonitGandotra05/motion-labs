@@ -52,6 +52,10 @@ export interface ElementProps {
   letterSpacing?: number; // pixels
   lineHeight?: number; // multiplier
 
+  // Text animations
+  textAnimation?: 'none' | 'typewriter' | 'slide-up' | 'fade-in' | 'scale-up' | 'blur-in';
+  animationDuration?: number; // seconds, default 1
+
   // Text shadow
   textShadowColor?: string;
   textShadowBlur?: number;
