@@ -39,6 +39,11 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   const [initialElementState, setInitialElementState] = useState<{ x: number, y: number, w: number, h: number, r: number } | null>(null);
   const [startMousePos, setStartMousePos] = useState({ x: 0, y: 0 });
 
+  // Audio Context Ref
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourcesRef = useRef<WeakMap<HTMLMediaElement, MediaElementSourceNode>>(new WeakMap());
+  const audioNodesRef = useRef<Map<string, { hp: BiquadFilterNode; lp: BiquadFilterNode; gain: GainNode }>>(new Map());
+
   useImperativeHandle(ref, () => ({
     captureStream: (fps: number) => {
       if (containerRef.current) {
@@ -51,14 +56,30 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     }
   }));
 
-  // -- Audio / Video Sync Logic --
+  // -- Audio / Video Sync & Effects Logic --
   useEffect(() => {
+    // Initialize Audio Context on user interaction (or first run if allowed)
+    if (!audioContextRef.current) {
+      const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+      if (AudioContextClass) {
+        audioContextRef.current = new AudioContextClass();
+      }
+    }
+
+    const ctx = audioContextRef.current;
+
+    // Resume context if suspended (browser policy)
+    if (ctx && ctx.state === 'suspended' && isPlaying) {
+      ctx.resume().catch(e => console.error("Audio resume failed", e));
+    }
+
     const mediaElements = document.querySelectorAll('video, audio');
     mediaElements.forEach((el: any) => {
       const id = el.dataset.elementId;
       const element = elements.find(e => e.id === id);
 
       if (element) {
+        // Time Sync
         if (currentTime >= element.startTime && currentTime <= element.startTime + element.duration) {
           const targetTime = (currentTime - element.startTime) + element.mediaOffset;
           if (Math.abs(el.currentTime - targetTime) > 0.3) {
@@ -70,27 +91,91 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
             el.pause();
           }
 
-          let effectiveVolume = element.props.volume ?? 1;
+          // Audio Effects Setup (Web Audio API)
+          if (ctx) {
+            // Create source if not exists
+            let source = audioSourcesRef.current.get(el);
+            if (!source) {
+              try {
+                // Determine if we can create source (might need crossOrigin set on element for remote)
+                // el.crossOrigin = "anonymous"; 
+                source = ctx.createMediaElementSource(el);
+                audioSourcesRef.current.set(el, source);
 
-          // Audio Ducking Logic
-          // Check if any *other* currently playing element has ducking enabled
-          const activeDuckingSource = elements.find(e =>
-            e.id !== element.id &&
-            (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
-            e.props.ducking &&
-            currentTime >= e.startTime &&
-            currentTime <= e.startTime + e.duration
-          );
+                // Create processing nodes
+                const hp = ctx.createBiquadFilter();
+                hp.type = 'highpass';
 
-          if (activeDuckingSource) {
-            // Apply ducking threshold (default 0.2 if not set)
-            effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
+                const lp = ctx.createBiquadFilter();
+                lp.type = 'lowpass';
+
+                const gain = ctx.createGain();
+
+                // Chain: Source -> HP -> LP -> Gain -> Destination
+                source.connect(hp);
+                hp.connect(lp);
+                lp.connect(gain);
+                gain.connect(ctx.destination);
+
+                audioNodesRef.current.set(id!, { hp, lp, gain });
+              } catch (err) {
+                console.warn("Could not create media source for EQ:", err);
+              }
+            }
+
+            // Update Nodes if they exist
+            const nodes = audioNodesRef.current.get(id!);
+            if (nodes) {
+              // Update EQ
+              const hpFreq = element.props.highPassFrequency || 0;
+              const lpFreq = element.props.lowPassFrequency || 20000;
+
+              if (nodes.hp.frequency.value !== hpFreq) nodes.hp.frequency.value = hpFreq;
+              if (nodes.lp.frequency.value !== lpFreq) nodes.lp.frequency.value = lpFreq;
+
+              // Calculate Volume with Ducking
+              let effectiveVolume = element.props.volume ?? 1;
+              if (element.props.isMuted) effectiveVolume = 0;
+
+              // Ducking Logic
+              const activeDuckingSource = elements.find(e =>
+                e.id !== element.id &&
+                (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
+                e.props.ducking &&
+                currentTime >= e.startTime &&
+                currentTime <= e.startTime + e.duration
+              );
+
+              if (activeDuckingSource) {
+                effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
+              }
+
+              // Apply to Gain Node
+              // We use a small ramp to prevent clicks
+              // nodes.gain.gain.setTargetAtTime(effectiveVolume, ctx.currentTime, 0.05); 
+              // Simple assignment is often fine for UI sliders, but setTargetAtTime is better
+              nodes.gain.gain.value = effectiveVolume;
+            }
+          } else {
+            // Fallback if Web Audio not supported (Basic Volume/Mute)
+            let effectiveVolume = element.props.volume ?? 1;
+            // ... duplicate ducking logic for fallback ...
+            const activeDuckingSource = elements.find(e =>
+              e.id !== element.id &&
+              (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
+              e.props.ducking &&
+              currentTime >= e.startTime &&
+              currentTime <= e.startTime + e.duration
+            );
+            if (activeDuckingSource) effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
+
+            el.volume = effectiveVolume;
+            el.muted = element.props.isMuted ?? false;
           }
 
-          el.volume = effectiveVolume;
-          el.muted = element.props.isMuted ?? false;
-          // Apply playback rate (speed control)
+          // Speed always on element
           el.playbackRate = element.props.playbackRate ?? 1;
+
         } else {
           if (!el.paused) el.pause();
         }

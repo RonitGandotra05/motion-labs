@@ -786,6 +786,44 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </div>
                         </div>
 
+                        {/* Audio EQ */}
+                        <div className="pt-2 pb-2 border-b border-gray-100 dark:border-gray-800 mb-2">
+                            <h4 className="text-[10px] uppercase font-bold text-gray-400 mb-2">Audio Equalization</h4>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <label className="text-xs text-gray-600 dark:text-gray-300">Low Pass (Treble Cut)</label>
+                                        <span className="text-[10px] text-gray-500">{element.props.lowPassFrequency || 20000} Hz</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="500"
+                                        max="20000"
+                                        step="100"
+                                        value={element.props.lowPassFrequency || 20000}
+                                        onChange={(e) => handleChange('lowPassFrequency', parseInt(e.target.value))}
+                                        className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                                    />
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <label className="text-xs text-gray-600 dark:text-gray-300">High Pass (Bass Cut)</label>
+                                        <span className="text-[10px] text-gray-500">{element.props.highPassFrequency || 0} Hz</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1000"
+                                        step="10"
+                                        value={element.props.highPassFrequency || 0}
+                                        onChange={(e) => handleChange('highPassFrequency', parseInt(e.target.value))}
+                                        className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                         <button
                             onClick={() => {
                                 handleChange('liftR', 0);
