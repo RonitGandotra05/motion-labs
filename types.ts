@@ -41,6 +41,9 @@ export interface ElementProps {
   // Audio Ducking
   ducking?: boolean; // If true, lowers volume of other tracks when this plays
   duckingThreshold?: number; // 0-1, how much to lower others (e.g. 0.2 = 20% volume)
+  // Audio EQ
+  highPassFrequency?: number; // Hz (e.g., 0-1000)
+  lowPassFrequency?: number; // Hz (e.g., 500-20000)
 
   // Text styling
   fontFamily?: string;
