@@ -57,6 +57,31 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
     onAddElement(asset.type, { src: url, name: asset.name, assetId: asset.id });
   };
 
+  // OS File Drag & Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+
+      for (const file of files) {
+        let type = ElementType.IMAGE;
+        if (file.type.startsWith('video/')) type = ElementType.VIDEO;
+        else if (file.type.startsWith('audio/')) type = ElementType.AUDIO;
+
+        await saveAsset(file, type, file.name);
+      }
+      await refreshLibrary();
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, asset: MediaAsset) => {
     e.dataTransfer.setData('application/react-frame-asset-id', asset.id);
     e.dataTransfer.effectAllowed = 'copy';
@@ -369,10 +394,14 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
                 </label>
               </h3>
 
-              <div className="space-y-2">
+              <div
+                className="space-y-2 min-h-[100px] border-2 border-dashed border-transparent hover:border-blue-300 dark:hover:border-blue-700 rounded-lg transition-colors"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
                 {libraryAssets.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-xs italic">
-                    Library is empty. <br />Record or Import media.
+                  <div className="text-center py-8 text-gray-400 text-xs italic pointer-events-none">
+                    Library is empty. <br />Record, Import, or Drag & Drop media here.
                   </div>
                 )}
                 {libraryAssets.map(asset => (
