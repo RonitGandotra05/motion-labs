@@ -174,7 +174,8 @@ export interface ProjectState {
   elements: EditorElement[];
   tracks: Track[];
   markers: Marker[]; // Timeline markers
-  selectedElementId: string | null;
+  selectedElementId: string | null; // Primary selection (for property panel)
+  selectedElementIds: string[]; // Multi-selection (for grouping/moving)
   videoSrc: string | null; // Deprecated in favor of elements, but kept for compatibility if needed, though we will move to track-based video
   isExporting: boolean;
 }

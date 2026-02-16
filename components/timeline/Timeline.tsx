@@ -10,7 +10,9 @@ interface TimelineProps {
   duration: number;
   onSeek: (time: number) => void;
   onSelectElement: (id: string) => void;
+  onToggleSelectElement: (id: string) => void;
   selectedElementId: string | null;
+  selectedElementIds: string[];
   onUpdateElement: (id: string, updates: Partial<EditorElement>) => void;
   onSplit: () => void;
   pixelsPerSecond: number;
@@ -41,7 +43,9 @@ const Timeline: React.FC<TimelineProps> = ({
   duration,
   onSeek,
   onSelectElement,
+  onToggleSelectElement,
   selectedElementId,
+  selectedElementIds,
   onUpdateElement,
   onSplit,
   pixelsPerSecond,
@@ -130,7 +134,21 @@ const Timeline: React.FC<TimelineProps> = ({
   const handleElementInteraction = (e: React.MouseEvent, type: DragMode, elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelectElement(elementId);
+
+    // Multi-select logic
+    if (e.metaKey || e.ctrlKey) {
+      onToggleSelectElement(elementId);
+    } else {
+      // If clicking an already selected element (in a multi-selection) without modifier, 
+      // AND we are starting a drag, we typically want to keep the selection to allow moving the whole group.
+      // But if we just click, we might want to deselect others. 
+      // Standard behavior: mousedown on selected keeps selection, mouseup might clear if no drag.
+      // For simplicity here: if not already selected, select only it.
+      // If already selected, keep selection (to allow drag).
+      if (!selectedElementIds.includes(elementId)) {
+        onSelectElement(elementId);
+      }
+    }
 
     setDragState({
       mode: type,

@@ -26,7 +26,8 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
   onElementInteraction,
   onInsertTrack,
   onDeleteTrack,
-  trackCount = 1
+  trackCount = 1,
+  selectedElementIds = []
 }) => {
   return (
     <div className="flex h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 relative group/track transition-colors">
@@ -66,7 +67,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
         {elements.filter(el => el.trackId === track.id).map((el) => {
           const left = el.startTime * pixelsPerSecond;
           const width = el.duration * pixelsPerSecond;
-          const isSelected = selectedElementId === el.id;
+          const isSelected = selectedElementId === el.id || selectedElementIds.includes(el.id);
 
           return (
             <div

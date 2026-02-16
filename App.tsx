@@ -44,6 +44,7 @@ function App() {
     tracks: DEFAULT_TRACKS,
     markers: [], // Timeline markers
     selectedElementId: null,
+    selectedElementIds: [],
     videoSrc: null,
     isExporting: false,
   });
@@ -447,22 +448,17 @@ function App() {
         return;
       }
       // Group: Cmd+G
-      if ((e.metaKey || e.ctrlKey) && e.key === 'g' && !e.shiftKey && project.selectedElementId) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g' && !e.shiftKey) {
         e.preventDefault();
-        // Since we only select one at a time currently, grouping needs multi-select which we don't have yet.
-        // For now, let's implement a hack: "Group with next touching element" or just placeholder.
-        // ACTUALLY, sticking to the plan: "Update selection logic: If clicking a grouped element, select all group members."
-        // We need multi-select to form a group first.
-        // Let's defer "Group" creation to when we have multi-select or specialized UI.
-        // BUT, the plan says "Implement handleGroup...".
-        // Let's allow grouping the *currently selected element* into a new group (essentially preparing it).
-        // OR better: Since we can't multi-select, maybe we just implement Ungroup for now?
-        // Wait, I can implement a "Group All on Track" or similar?
-        // No, let's Stick to "Ungroup" for single selection.
-        // For Grouping, maybe we assume the user will multi-select in the future?
-        // Current constraint: Single selection.
-        // Workaround: "Group with overlapping/adjacent" or just leave `handleGroup` empty/stubbed until multi-select exists?
-        // Let's implement `handleUngroup` first.
+        if (project.selectedElementIds.length > 1) {
+          handleGroupElements(project.selectedElementIds);
+        } else if (project.selectedElementId) {
+          // Fallback: If single element selected, try to find continuous block on same track?
+          // Or just do nothing. Standard behavior is to need selection.
+          // Maybe select all on track? No, that's Cmd+A.
+          console.log("Select multiple elements to group.");
+        }
+        return;
       }
 
       // Ungroup: Cmd+Shift+G
@@ -470,11 +466,7 @@ function App() {
         e.preventDefault();
         const el = project.elements.find(e => e.id === project.selectedElementId);
         if (el && el.groupId) {
-          saveToHistory();
-          setProject(prev => ({
-            ...prev,
-            elements: prev.elements.map(e => e.groupId === el.groupId ? { ...e, groupId: undefined } : e)
-          }));
+          handleUngroupElements(el.groupId);
         }
         return;
       }
@@ -648,7 +640,35 @@ function App() {
   };
 
   const handleSelectElement = (id: string | null) => {
-    setProject(prev => ({ ...prev, selectedElementId: id }));
+    setProject(prev => ({
+      ...prev,
+      selectedElementId: id,
+      selectedElementIds: id ? [id] : []
+    }));
+  };
+
+  const handleToggleSelectElement = (id: string) => {
+    setProject(prev => {
+      const isSelected = prev.selectedElementIds.includes(id);
+      let newIds: string[];
+      let newPrimary = prev.selectedElementId;
+
+      if (isSelected) {
+        newIds = prev.selectedElementIds.filter(eid => eid !== id);
+        if (newPrimary === id) {
+          newPrimary = newIds.length > 0 ? newIds[newIds.length - 1] : null;
+        }
+      } else {
+        newIds = [...prev.selectedElementIds, id];
+        newPrimary = id;
+      }
+
+      return {
+        ...prev,
+        selectedElementId: newPrimary,
+        selectedElementIds: newIds
+      };
+    });
   };
 
   const handleUpdateElement = (id: string, updates: Partial<EditorElement>) => {
@@ -674,7 +694,12 @@ function App() {
 
       prev.elements.forEach(el => {
         if (time > el.startTime && time < el.startTime + el.duration) {
-          if (prev.selectedElementId && el.id !== prev.selectedElementId) return;
+          // If selection exists, only split selected elements.
+          // If no selection, split all elements under playhead (Razor/Blade behavior).
+          if (prev.selectedElementIds.length > 0) {
+            if (!prev.selectedElementIds.includes(el.id)) return;
+          }
+
           modified = true;
           const splitPointRelative = time - el.startTime;
           const originalDuration = el.duration;
@@ -688,7 +713,8 @@ function App() {
             startTime: time,
             duration: rightDuration,
             mediaOffset: el.mediaOffset + leftDuration,
-            name: el.name + " (Copy)"
+            name: el.name + " (Copy)",
+            groupId: undefined // Split parts shouldn't inherit group? Or should they? Maybe undefined for safety.
           };
 
           const index = newElements.findIndex(e => e.id === el.id);
@@ -1198,7 +1224,9 @@ function App() {
           duration={project.duration}
           onSeek={handleSeek}
           onSelectElement={handleSelectElement}
+          onToggleSelectElement={handleToggleSelectElement}
           selectedElementId={project.selectedElementId}
+          selectedElementIds={project.selectedElementIds}
           onUpdateElement={handleUpdateElement}
           onSplit={handleSplit}
           pixelsPerSecond={pixelsPerSecond}
