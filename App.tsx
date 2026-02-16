@@ -368,6 +368,49 @@ function App() {
         return;
       }
 
+      // Duplicate element: D
+      if (e.key === 'd' && project.selectedElementId && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        const selectedEl = project.elements.find(el => el.id === project.selectedElementId);
+        if (selectedEl) {
+          saveToHistory();
+          const newElement: EditorElement = {
+            ...selectedEl,
+            id: `${selectedEl.type.toLowerCase()}-${Date.now()}`,
+            name: `${selectedEl.name} Copy`,
+            x: Math.min(selectedEl.x + 5, 90),
+            y: Math.min(selectedEl.y + 5, 90),
+            groupId: undefined // Do not duplicate group membership automatically unless we duplicate whole group
+          };
+          setProject(prev => ({
+            ...prev,
+            elements: [...prev.elements, newElement],
+            selectedElementId: newElement.id
+          }));
+        }
+        return;
+      }
+
+      // Arrow keys: Nudge position
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && project.selectedElementId) {
+        e.preventDefault();
+        const nudgeAmount = e.shiftKey ? 10 : 1; // Shift for bigger nudge
+        setProject(prev => ({
+          ...prev,
+          elements: prev.elements.map(el => {
+            if (el.id !== prev.selectedElementId) return el;
+            switch (e.key) {
+              case 'ArrowUp': return { ...el, y: Math.max(0, el.y - nudgeAmount) };
+              case 'ArrowDown': return { ...el, y: Math.min(100, el.y + nudgeAmount) };
+              case 'ArrowLeft': return { ...el, x: Math.max(0, el.x - nudgeAmount) };
+              case 'ArrowRight': return { ...el, x: Math.min(100, el.x + nudgeAmount) };
+              default: return el;
+            }
+          })
+        }));
+        return;
+      }
+
 
       // Home: Jump to start
       if (e.key === 'Home') {
