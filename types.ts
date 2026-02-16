@@ -153,6 +153,9 @@ export interface EditorElement {
 
   // Clip color label for organization (DaVinci-style)
   clipColor?: 'none' | 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink';
+
+  // Grouping
+  groupId?: string;
 }
 
 export interface Track {

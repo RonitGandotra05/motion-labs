@@ -1,5 +1,6 @@
 import React from 'react';
 import { EditorElement, Track, ElementType } from '../../types';
+import Waveform from './Waveform';
 
 interface TimelineTrackProps {
   track: Track;
@@ -78,7 +79,27 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               style={{ left: `${left}px`, width: `${width}px` }}
               onMouseDown={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
             >
-              <span className="truncate drop-shadow-sm pointer-events-none">{el.name}</span>
+              {/* Audio Waveform */}
+              {(el.type === ElementType.AUDIO || el.type === ElementType.VIDEO) && el.props.src && (
+                <div className="absolute inset-0 opacity-50 z-0 pointer-events-none overflow-hidden">
+                  {/* We need to render the *whole* waveform and then position/crop it based on mediaOffset */}
+                  {/* However, for performance, a simple approach is to render it in a container that shifts */}
+                  <div
+                    style={{
+                      width: `${(el.duration + el.mediaOffset) / el.duration * 100}%`,
+                      height: '100%',
+                      transform: `translateX(-${(el.mediaOffset / (el.duration + el.mediaOffset)) * 100}%)`,
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Note: This assumes src is a blob URL or similar that we can fetch. */}
+                    {/* For remote URLs, CORS might be an issue without proxy/config. */}
+                    <Waveform audioUrl={el.props.src} duration={el.duration + el.mediaOffset} />
+                  </div>
+                </div>
+              )}
+
+              <span className="truncate drop-shadow-sm pointer-events-none relative z-10 mix-blend-difference text-white">{el.name}</span>
 
               {isSelected && (
                 <>
