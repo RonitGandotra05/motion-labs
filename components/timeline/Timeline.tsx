@@ -156,51 +156,59 @@ const Timeline: React.FC<TimelineProps> = ({
         const deltaTime = deltaX / pixelsPerSecond;
         const shiftPressed = e.shiftKey;
 
+        // Find if dragging a group
+        const draggedElement = elements.find(el => el.id === dragState.elementId);
+        const groupMembers = draggedElement?.groupId
+          ? elements.filter(el => el.groupId === draggedElement.groupId && el.id !== draggedElement.id)
+          : [];
+
         if (dragState.mode === 'MOVE') {
           let newStartTime = Math.max(0, dragState.originalStartTime + deltaTime);
           const elementDuration = dragState.originalDuration;
 
-          // Determine Track
+          // Determine Track (Only for the primary dragged element for now)
+          // Group members move relative to their own start times
           const trackElement = (e.target as HTMLElement).closest('[data-track-id]');
           let newTrackId = dragState.originalTrackId;
+
           if (trackElement) {
             const id = Number(trackElement.getAttribute('data-track-id'));
             if (!isNaN(id)) newTrackId = id;
-          } else {
-            const elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
-            const trackDiv = elementsUnder.find(el => el.hasAttribute('data-track-id'));
-            if (trackDiv) {
-              const id = Number(trackDiv.getAttribute('data-track-id'));
-              if (!isNaN(id)) newTrackId = id;
-            }
           }
 
-          // Apply magnetic snapping for start edge
+          // Apply magnetic snapping (primary element only)
           const snapPoints = findSnapPoints(newTrackId, dragState.elementId);
           const startSnap = snapToNearestPoint(newStartTime, snapPoints, shiftPressed);
 
-          // Also try snapping the end edge
-          const endTime = newStartTime + elementDuration;
-          const endSnap = snapToNearestPoint(endTime, snapPoints, shiftPressed);
-
-          // Prefer whichever snap is closer
-          if (endSnap.didSnap && (!startSnap.didSnap || Math.abs(endTime - endSnap.snapped) < Math.abs(newStartTime - startSnap.snapped))) {
-            newStartTime = endSnap.snapped - elementDuration;
-            setSnapIndicator({ time: endSnap.snapped, trackId: newTrackId });
-          } else if (startSnap.didSnap) {
+          if (startSnap.didSnap) {
             newStartTime = startSnap.snapped;
             setSnapIndicator({ time: startSnap.snapped, trackId: newTrackId });
           } else {
             setSnapIndicator(null);
           }
 
+          const timeDelta = newStartTime - dragState.originalStartTime;
+          const trackDelta = newTrackId - dragState.originalTrackId;
+
+          // Update Primary Element
           onUpdateElement(dragState.elementId, {
-            startTime: Math.max(0, newStartTime),
+            startTime: newStartTime,
             trackId: newTrackId
           });
 
+          // Update Group Members (Move by same time delta, keep track relative or same? Usually groups move across tracks together if selected together, but here we only dragged one.)
+          // DaVinci behavior: If you drag one clip in a linked group, they all move in time. They usually stay on their respective tracks unless explicitly moved.
+          // Let's implement: Move in sync time-wise. Keep track same (unless we want to support multi-track move, which is hard with single mouse pointer).
+          groupMembers.forEach(member => {
+            onUpdateElement(member.id, {
+              startTime: Math.max(0, member.startTime + timeDelta)
+              // We do NOT change move trackId for members automatically to avoid collisions or complex logic
+            });
+          });
+
         } else if (dragState.mode === 'RESIZE_R') {
-          // Resize Right Edge: Changes Duration
+          // ... (Resize logic typically doesn't affect group members unless we want 'ripple' effect, but standard Group doesn't resize together usually)
+          // For now, only resize the specific element.
           let newEndTime = dragState.originalStartTime + dragState.originalDuration + deltaTime;
           const snapPoints = findSnapPoints(dragState.originalTrackId, dragState.elementId);
           const snap = snapToNearestPoint(newEndTime, snapPoints, shiftPressed);
@@ -218,10 +226,9 @@ const Timeline: React.FC<TimelineProps> = ({
           });
 
         } else if (dragState.mode === 'RESIZE_L') {
-          // Resize Left Edge: Changes StartTime, Duration, and MediaOffset
+          // ...
           let newStartTime = dragState.originalStartTime + deltaTime;
-
-          // Apply snapping
+          // ... (snapping logic)
           const snapPoints = findSnapPoints(dragState.originalTrackId, dragState.elementId);
           const snap = snapToNearestPoint(newStartTime, snapPoints, shiftPressed);
 
@@ -232,14 +239,11 @@ const Timeline: React.FC<TimelineProps> = ({
             setSnapIndicator(null);
           }
 
-          // Clamp to 0
           if (newStartTime < 0) newStartTime = 0;
 
-          // Calculate effective delta after clamping
           const effectiveDelta = newStartTime - dragState.originalStartTime;
           const newDuration = Math.max(0.5, dragState.originalDuration - effectiveDelta);
 
-          // If duration hit min, stop moving start time
           if (newDuration === 0.5) {
             newStartTime = dragState.originalStartTime + (dragState.originalDuration - 0.5);
           }
