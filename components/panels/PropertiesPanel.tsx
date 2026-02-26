@@ -30,10 +30,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
 
     return (
         <div className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-y-auto transition-colors" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
-            <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 font-semibold text-sm text-gray-700 dark:text-gray-200">
-                Properties
-            </div>
-
             <div className="p-4 space-y-6">
                 {/* Basic Info */}
                 <div className="space-y-2">
@@ -479,35 +475,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             />
                         </div>
 
-                        <div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Brightness ({Math.round((element.props.brightness ?? 1) * 100)}%)</span>
-                            <input
-                                type="range" min="0" max="2" step="0.05"
-                                value={element.props.brightness ?? 1}
-                                onChange={(e) => handleChange('brightness', Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
-                            />
-                        </div>
-
-                        <div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Contrast ({Math.round((element.props.contrast ?? 1) * 100)}%)</span>
-                            <input
-                                type="range" min="0" max="2" step="0.05"
-                                value={element.props.contrast ?? 1}
-                                onChange={(e) => handleChange('contrast', Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
-                            />
-                        </div>
-
-                        <div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Saturation ({Math.round((element.props.saturation ?? 1) * 100)}%)</span>
-                            <input
-                                type="range" min="0" max="2" step="0.05"
-                                value={element.props.saturation ?? 1}
-                                onChange={(e) => handleChange('saturation', Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
-                            />
-                        </div>
+                        {/* Color properties moved to ColorPanel */}
 
                         <div>
                             <span className="text-xs text-gray-500 dark:text-gray-400">Blur ({element.props.blur ?? 0}px)</span>
@@ -540,15 +508,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </div>
                         </div>
 
-                        <div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Hue Rotate ({element.props.hueRotate ?? 0}°)</span>
-                            <input
-                                type="range" min="0" max="360" step="5"
-                                value={element.props.hueRotate ?? 0}
-                                onChange={(e) => handleChange('hueRotate', Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
-                            />
-                        </div>
+                        {/* hueRotate moved to ColorPanel */}
 
                         <div>
                             <span className="text-xs text-gray-500 dark:text-gray-400">Blend Mode</span>
@@ -575,13 +535,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         <button
                             onClick={() => {
                                 handleChange('opacity', 1);
-                                handleChange('brightness', 1);
-                                handleChange('contrast', 1);
-                                handleChange('saturation', 1);
                                 handleChange('blur', 0);
                                 handleChange('grayscale', 0);
                                 handleChange('sepia', 0);
-                                handleChange('hueRotate', 0);
                                 handleChange('blendMode', 'normal');
                             }}
                             className="w-full py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-600 dark:text-gray-400 transition"
@@ -647,37 +603,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                     </div>
                 )}
 
-                {/* LUT Presets */}
-                {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE || element.type === ElementType.ADJUSTMENT) && (
-                    <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-                        <label className="text-xs text-gray-500 uppercase font-bold">🎬 LUT Presets</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                            {([
-                                { value: 'none', label: 'None', colors: ['#888', '#888'] },
-                                { value: 'cinematic', label: 'Cinematic', colors: ['#3b5998', '#ff8c00'] },
-                                { value: 'vintage', label: 'Vintage', colors: ['#d4a574', '#8b6914'] },
-                                { value: 'cool', label: 'Cool', colors: ['#6dd5ed', '#2193b0'] },
-                                { value: 'warm', label: 'Warm', colors: ['#ff9a56', '#f7971e'] },
-                                { value: 'noir', label: 'Noir', colors: ['#232526', '#414345'] },
-                                { value: 'teal-orange', label: 'Teal & Orange', colors: ['#008080', '#ff6347'] },
-                                { value: 'bleach-bypass', label: 'Bleach', colors: ['#e0e0e0', '#a0a0a0'] }
-                            ] as const).map((lut) => (
-                                <button
-                                    key={lut.value}
-                                    onClick={() => handleChange('lutPreset', lut.value)}
-                                    className={`py-1.5 px-2 rounded text-[10px] font-medium border transition ${element.props.lutPreset === lut.value || (!element.props.lutPreset && lut.value === 'none') ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'}`}
-                                    style={{
-                                        background: lut.value === 'none' ? undefined : `linear-gradient(135deg, ${lut.colors[0]}, ${lut.colors[1]})`
-                                    }}
-                                >
-                                    <span className={lut.value === 'none' ? 'text-gray-600 dark:text-gray-400' : 'text-white drop-shadow-sm'}>
-                                        {lut.label}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* LUT Presets moved to ColorPanel */}
 
                 {/* Color Wheels - DaVinci Style */}
                 {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE || element.type === ElementType.ADJUSTMENT) && (

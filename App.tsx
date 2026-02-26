@@ -3,6 +3,7 @@ import { LayersIcon, DownloadIcon, SunIcon, MoonIcon, SaveIcon, FolderOpenIcon }
 import AssetsPanel from './components/panels/AssetsPanel';
 import SettingsPanel from './components/panels/SettingsPanel';
 import PropertiesPanel from './components/panels/PropertiesPanel';
+import ColorPanel from './components/panels/ColorPanel';
 import VideoPreview, { VideoPreviewHandle } from './components/preview/VideoPreview';
 import Timeline from './components/timeline/Timeline';
 import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker } from './types';
@@ -34,6 +35,7 @@ function App() {
   const [rippleEditMode, setRippleEditMode] = useState(false); // DaVinci-style ripple edit
   const [snapEnabled, setSnapEnabled] = useState(true); // Magnetic snap toggle
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [activeRightTab, setActiveRightTab] = useState<'properties' | 'color'>('properties');
 
   const [project, setProject] = useState<ProjectState>({
     currentTime: 0,
@@ -1184,8 +1186,8 @@ function App() {
           />
         </div>
 
-        {/* Right: Properties Panel with resize handle */}
-        <div className="flex-shrink-0 relative" style={{ width: `${rightPanelWidth}px` }}>
+        {/* Right: Properties/Color Panel with resize handle */}
+        <div className="flex-shrink-0 flex flex-col relative bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 transition-colors" style={{ width: `${rightPanelWidth}px` }}>
           {/* Left edge resize handle */}
           <div
             className="absolute top-0 left-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
@@ -1193,13 +1195,38 @@ function App() {
           >
             <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
           </div>
-          <PropertiesPanel
-            element={selectedElement}
-            onUpdate={handleUpdateElement}
-            onDelete={handleDeleteElement}
-            onSplitAudio={handleSplitAudio}
-            panelWidth={rightPanelWidth}
-          />
+
+          {/* Tabs */}
+          <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 space-x-4">
+            <button
+              onClick={() => setActiveRightTab('properties')}
+              className={`text-sm font-semibold transition-colors ${activeRightTab === 'properties' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              Properties
+            </button>
+            <button
+              onClick={() => setActiveRightTab('color')}
+              className={`text-sm font-semibold transition-colors ${activeRightTab === 'color' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              Color
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {activeRightTab === 'properties' ? (
+              <PropertiesPanel
+                element={selectedElement}
+                onUpdate={handleUpdateElement}
+                onDelete={handleDeleteElement}
+                onSplitAudio={handleSplitAudio}
+              />
+            ) : (
+              <ColorPanel
+                element={selectedElement}
+                onUpdate={handleUpdateElement}
+              />
+            )}
+          </div>
         </div>
       </div>
 
