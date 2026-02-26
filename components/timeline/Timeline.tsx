@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Track, EditorElement, Marker } from '../../types';
 import TimelineTrack from './TimelineTrack';
-import { ScissorsIcon, ZoomInIcon, ZoomOutIcon, MagnetIcon, CompressIcon, FitIcon } from '../ui/Icons';
+import { MousePointerIcon, ScissorsIcon, SlipIcon, RollIcon, ZoomInIcon, ZoomOutIcon, MagnetIcon, CompressIcon, FitIcon } from '../ui/Icons';
+
+export type ToolMode = 'pointer' | 'blade' | 'slip' | 'roll';
 
 interface TimelineProps {
   tracks: Track[];
@@ -29,9 +31,12 @@ interface TimelineProps {
   onAddMarker?: (time: number) => void;
   onUpdateMarker?: (id: string, updates: Partial<Marker>) => void;
   onDeleteMarker?: (id: string) => void;
+  toolMode?: ToolMode;
+  setToolMode?: (mode: ToolMode) => void;
+  onSplitElement?: (elementId: string, time: number) => void;
 }
 
-type DragMode = 'MOVE' | 'RESIZE_L' | 'RESIZE_R';
+type DragMode = 'MOVE' | 'RESIZE_L' | 'RESIZE_R' | 'SLIP' | 'ROLL';
 
 // Magnetic snap threshold in pixels
 const SNAP_THRESHOLD_PX = 10;
@@ -61,7 +66,10 @@ const Timeline: React.FC<TimelineProps> = ({
   markers = [],
   onAddMarker,
   onUpdateMarker,
-  onDeleteMarker
+  onDeleteMarker,
+  toolMode = 'pointer',
+  setToolMode,
+  onSplitElement
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -150,8 +158,23 @@ const Timeline: React.FC<TimelineProps> = ({
       }
     }
 
+    let actualDragMode = type;
+    if (toolMode === 'blade') {
+      if (!containerRef.current || !onSplitElement) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left - 96;
+      const clickTime = Math.max(0, clickX / pixelsPerSecond);
+      onSplitElement(elementId, clickTime);
+      return;
+    } else if (toolMode === 'slip' && type === 'MOVE') {
+      actualDragMode = 'SLIP';
+    } else if (toolMode === 'roll') {
+      // Basic roll mappings. (Proper roll requires finding adjacent clips, implemented later or handled by edge resize)
+      actualDragMode = type === 'MOVE' ? 'ROLL' : type;
+    }
+
     setDragState({
-      mode: type,
+      mode: actualDragMode,
       elementId,
       startX: e.clientX,
       originalStartTime: startTime,
@@ -271,6 +294,22 @@ const Timeline: React.FC<TimelineProps> = ({
             duration: newDuration,
             mediaOffset: dragState.originalMediaOffset + effectiveDelta
           });
+        } else if (dragState.mode === 'SLIP') {
+          // Slip changes mediaOffset but keeps startTime and duration same
+          const deltaOffset = -deltaTime;
+          const newOffset = Math.max(0, dragState.originalMediaOffset + deltaOffset);
+
+          onUpdateElement(dragState.elementId, {
+            mediaOffset: newOffset
+          });
+        } else if (dragState.mode === 'ROLL') {
+          // Simple roll fallback if clicking middle in roll mode: just slip for now
+          const deltaOffset = -deltaTime;
+          const newOffset = Math.max(0, dragState.originalMediaOffset + deltaOffset);
+
+          onUpdateElement(dragState.elementId, {
+            mediaOffset: newOffset
+          });
         }
       }
     };
@@ -338,14 +377,38 @@ const Timeline: React.FC<TimelineProps> = ({
           <span className="font-mono text-blue-600 dark:text-blue-400">{formatTime(currentTime)}</span>
           <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
 
-          <button
-            onClick={onSplit}
-            className="flex items-center space-x-1 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1 rounded transition text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white"
-            title="Split Clip at Playhead"
-          >
-            <ScissorsIcon className="w-4 h-4" />
-            <span>Split</span>
-          </button>
+          <div className="flex space-x-1 items-center bg-gray-100 dark:bg-gray-800 p-0.5 rounded mr-2">
+            <button
+              onClick={() => setToolMode?.('pointer')}
+              className={`p-1.5 rounded transition ${toolMode === 'pointer' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
+              title="Pointer Tool (V)"
+            >
+              <MousePointerIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setToolMode?.('blade')}
+              className={`p-1.5 rounded transition ${toolMode === 'blade' ? 'bg-white dark:bg-gray-600 shadow text-red-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
+              title="Blade Tool (B)"
+            >
+              <ScissorsIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setToolMode?.('slip')}
+              className={`p-1.5 rounded transition ${toolMode === 'slip' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
+              title="Slip Tool (T)"
+            >
+              <SlipIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setToolMode?.('roll')}
+              className={`p-1.5 rounded transition ${toolMode === 'roll' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
+              title="Roll Tool (Y)"
+            >
+              <RollIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
 
           {onToggleRippleEdit && (
             <button

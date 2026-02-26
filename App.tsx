@@ -36,6 +36,7 @@ function App() {
   const [snapEnabled, setSnapEnabled] = useState(true); // Magnetic snap toggle
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'properties' | 'color'>('properties');
+  const [toolMode, setToolMode] = useState<'pointer' | 'blade' | 'slip' | 'roll'>('pointer');
 
   const [project, setProject] = useState<ProjectState>({
     currentTime: 0,
@@ -277,7 +278,25 @@ function App() {
         return;
       }
 
-      // Split: S
+      // Tool selection shortcuts
+      if (e.key === 'v' && !e.metaKey && !e.ctrlKey) {
+        setToolMode('pointer');
+        return;
+      }
+      if (e.key === 'b' && !e.metaKey && !e.ctrlKey) {
+        setToolMode('blade');
+        return;
+      }
+      if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
+        setToolMode('slip');
+        return;
+      }
+      if (e.key === 'y' && !e.metaKey && !e.ctrlKey) {
+        setToolMode('roll');
+        return;
+      }
+
+      // Split: S (Command)
       if (e.key === 's' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         handleSplit();
@@ -727,6 +746,33 @@ function App() {
       return modified ? { ...prev, elements: newElements, selectedElementId: null } : prev;
     });
   };
+
+  const handleSplitElement = useCallback((elementId: string, time: number) => {
+    saveToHistory();
+    setProject(prev => {
+      const el = prev.elements.find(e => e.id === elementId);
+      if (!el || time <= el.startTime || time >= el.startTime + el.duration) return prev;
+
+      const splitPointRelative = time - el.startTime;
+      const leftDuration = splitPointRelative;
+      const rightDuration = el.duration - leftDuration;
+      const newId = Math.random().toString(36).substr(2, 9);
+
+      const rightPart: EditorElement = {
+        ...el,
+        id: newId,
+        startTime: time,
+        duration: rightDuration,
+        mediaOffset: el.mediaOffset + leftDuration,
+        name: el.name + " (Copy)",
+        groupId: undefined
+      };
+
+      const newElements = prev.elements.map(e => e.id === el.id ? { ...e, duration: leftDuration } : e);
+      newElements.push(rightPart);
+      return { ...prev, elements: newElements };
+    });
+  }, [saveToHistory]);
 
   // Split Audio from Video - extracts audio to a new track below the video
   const handleSplitAudio = (videoElementId: string) => {
@@ -1270,6 +1316,9 @@ function App() {
           onAddMarker={handleAddMarker}
           onUpdateMarker={handleUpdateMarker}
           onDeleteMarker={handleDeleteMarker}
+          toolMode={toolMode}
+          setToolMode={setToolMode}
+          onSplitElement={handleSplitElement}
         />
       </div>
 
