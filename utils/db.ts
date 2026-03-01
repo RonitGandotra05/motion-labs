@@ -57,12 +57,24 @@ export const saveAsset = async (file: File | Blob, type: ElementType, name: stri
   };
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(MEDIA_STORE, 'readwrite');
-    const store = tx.objectStore(MEDIA_STORE);
-    const request = store.add(asset);
+    try {
+      const tx = db.transaction(MEDIA_STORE, 'readwrite');
+      const store = tx.objectStore(MEDIA_STORE);
+      const request = store.add(asset);
 
-    request.onsuccess = () => resolve(asset);
-    request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(asset);
+      request.onerror = (e) => {
+        if (request.error?.name === 'QuotaExceededError') {
+          alert('Storage limit reached! Please delete some assets or free up space on your device.');
+        }
+        reject(request.error);
+      };
+    } catch (e: any) {
+      if (e.name === 'QuotaExceededError') {
+        alert('Storage limit reached! Please delete some assets or free up space on your device.');
+      }
+      reject(e);
+    }
   });
 };
 
