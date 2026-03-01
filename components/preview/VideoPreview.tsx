@@ -184,14 +184,18 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   }, [currentTime, isPlaying, elements]);
 
 
-  const handleElementMouseDown = (e: React.MouseEvent, element: EditorElement) => {
+  const handleElementMouseDown = (e: React.MouseEvent | React.TouchEvent, element: EditorElement) => {
     e.stopPropagation();
-    e.preventDefault(); // Prevent default text selection
+    // Do not prevent default unconditionally, otherwise inputs might fail, but okay for canvas drag
     onSelectElement(element.id);
     setIsDragging(true);
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
     setDragOffset({
-      x: e.clientX,
-      y: e.clientY
+      x: clientX,
+      y: clientY
     });
     setInitialElementState({
       x: element.x,
@@ -202,12 +206,16 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     });
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent, handle: string, element: EditorElement) => {
+  const handleResizeMouseDown = (e: React.MouseEvent | React.TouchEvent, handle: string, element: EditorElement) => {
     e.stopPropagation();
     e.preventDefault();
     setIsResizing(true);
     setResizeHandle(handle);
-    setStartMousePos({ x: e.clientX, y: e.clientY });
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+    setStartMousePos({ x: clientX, y: clientY });
     setInitialElementState({
       x: element.x,
       y: element.y,
@@ -218,14 +226,22 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (!containerRef.current || !selectedElementId || !initialElementState) return;
       const rect = containerRef.current.getBoundingClientRect();
 
+      const isTouch = 'touches' in e;
+      if (isTouch && (isDragging || isResizing)) {
+        if (e.cancelable) e.preventDefault(); // Prevent scrolling while dragging
+      }
+
+      const clientX = isTouch ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+      const clientY = isTouch ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+
       if (isDragging) {
         // Drag Logic
-        const deltaX = e.clientX - dragOffset.x;
-        const deltaY = e.clientY - dragOffset.y;
+        const deltaX = clientX - dragOffset.x;
+        const deltaY = clientY - dragOffset.y;
 
         const deltaXPercent = (deltaX / rect.width) * 100;
         const deltaYPercent = (deltaY / rect.height) * 100;
@@ -237,8 +253,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
       } else if (isResizing && resizeHandle) {
         // Resize Logic with Rotation Support
-        const deltaX = e.clientX - startMousePos.x;
-        const deltaY = e.clientY - startMousePos.y;
+        const deltaX = clientX - startMousePos.x;
+        const deltaY = clientY - startMousePos.y;
 
         // Convert screen delta to local delta (rotated)
         const rad = (initialElementState.r * Math.PI) / 180;
@@ -318,10 +334,14 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     if (isDragging || isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove, { passive: false });
+      window.addEventListener('touchend', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
     };
   }, [isDragging, isResizing, selectedElementId, dragOffset, startMousePos, initialElementState]);
 
@@ -515,20 +535,20 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       const hStyle = "absolute w-3 h-3 bg-white border border-blue-500 rounded-full z-20 pointer-events-auto hover:bg-blue-100 hover:scale-125 transition-transform";
       return (
         <>
-          <div className={`${hStyle} -top-1.5 -left-1.5 cursor-nw-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el)} />
-          <div className={`${hStyle} -top-1.5 left-1/2 -translate-x-1/2 cursor-n-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'n', el)} />
-          <div className={`${hStyle} -top-1.5 -right-1.5 cursor-ne-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el)} />
-          <div className={`${hStyle} top-1/2 -translate-y-1/2 -right-1.5 cursor-e-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'e', el)} />
-          <div className={`${hStyle} -bottom-1.5 -right-1.5 cursor-se-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'se', el)} />
-          <div className={`${hStyle} -bottom-1.5 left-1/2 -translate-x-1/2 cursor-s-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 's', el)} />
-          <div className={`${hStyle} -bottom-1.5 -left-1.5 cursor-sw-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el)} />
-          <div className={`${hStyle} top-1/2 -translate-y-1/2 -left-1.5 cursor-w-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'w', el)} />
+          <div className={`${hStyle} -top-1.5 -left-1.5 cursor-nw-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'nw', el)} />
+          <div className={`${hStyle} -top-1.5 left-1/2 -translate-x-1/2 cursor-n-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'n', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'n', el)} />
+          <div className={`${hStyle} -top-1.5 -right-1.5 cursor-ne-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'ne', el)} />
+          <div className={`${hStyle} top-1/2 -translate-y-1/2 -right-1.5 cursor-e-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'e', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'e', el)} />
+          <div className={`${hStyle} -bottom-1.5 -right-1.5 cursor-se-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'se', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'se', el)} />
+          <div className={`${hStyle} -bottom-1.5 left-1/2 -translate-x-1/2 cursor-s-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 's', el)} onTouchStart={(e) => handleResizeMouseDown(e, 's', el)} />
+          <div className={`${hStyle} -bottom-1.5 -left-1.5 cursor-sw-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'sw', el)} />
+          <div className={`${hStyle} top-1/2 -translate-y-1/2 -left-1.5 cursor-w-resize`} onMouseDown={(e) => handleResizeMouseDown(e, 'w', el)} onTouchStart={(e) => handleResizeMouseDown(e, 'w', el)} />
         </>
       );
     }
 
     return (
-      <div key={el.id} style={style} onMouseDown={(e) => handleElementMouseDown(e, el)}>
+      <div key={el.id} style={style} onMouseDown={(e) => handleElementMouseDown(e, el)} onTouchStart={(e) => handleElementMouseDown(e, el)}>
 
         {el.type === ElementType.VIDEO && el.props.src && (
           <video

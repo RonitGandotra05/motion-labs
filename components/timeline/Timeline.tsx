@@ -125,26 +125,30 @@ const Timeline: React.FC<TimelineProps> = ({
   }, [pixelsPerSecond]);
 
   // -- Playhead Logic --
-  const handleRulerMouseDown = (e: React.MouseEvent) => {
+  const handleRulerMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDraggingPlayhead(true);
     updateTimeFromMouse(e);
   };
 
-  const updateTimeFromMouse = (e: MouseEvent | React.MouseEvent) => {
+  const updateTimeFromMouse = (e: MouseEvent | React.MouseEvent | TouchEvent | React.TouchEvent) => {
     if (!rulerRef.current) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
     const rect = rulerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - 96;
+    const x = clientX - rect.left - 96;
     const newTime = Math.max(0, x / pixelsPerSecond);
     onSeek(newTime);
   };
 
   // -- Element Interaction Logic --
-  const handleElementInteraction = (e: React.MouseEvent, type: DragMode, elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => {
+  const handleElementInteraction = (e: React.MouseEvent | React.TouchEvent, type: DragMode, elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => {
     e.stopPropagation();
     e.preventDefault();
 
-    // Multi-select logic
-    if (e.metaKey || e.ctrlKey) {
+    // Multi-select logic (using simple property check to be safe for TouchEvent vs MouseEvent)
+    const isMetaKey = 'metaKey' in e && e.metaKey;
+    const isCtrlKey = 'ctrlKey' in e && e.ctrlKey;
+
+    if (isMetaKey || isCtrlKey) {
       onToggleSelectElement(elementId);
     } else {
       // If clicking an already selected element (in a multi-selection) without modifier, 
@@ -159,10 +163,12 @@ const Timeline: React.FC<TimelineProps> = ({
     }
 
     let actualDragMode = type;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+
     if (toolMode === 'blade') {
       if (!containerRef.current || !onSplitElement) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left - 96;
+      const clickX = clientX - rect.left - 96;
       const clickTime = Math.max(0, clickX / pixelsPerSecond);
       onSplitElement(elementId, clickTime);
       return;
@@ -176,7 +182,7 @@ const Timeline: React.FC<TimelineProps> = ({
     setDragState({
       mode: actualDragMode,
       elementId,
-      startX: e.clientX,
+      startX: clientX,
       originalStartTime: startTime,
       originalDuration: duration,
       originalMediaOffset: mediaOffset,
@@ -186,16 +192,21 @@ const Timeline: React.FC<TimelineProps> = ({
 
   // Global Mouse Move / Up for dragging
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+      const isTouch = 'touches' in e;
+
       if (isDraggingPlayhead) {
+        if (isTouch) e.preventDefault(); // Prevent scrolling while scrubbing
         updateTimeFromMouse(e);
       }
 
       if (dragState) {
-        e.preventDefault();
-        const deltaX = e.clientX - dragState.startX;
+        if (isTouch) e.preventDefault(); // Prevent scrolling while dragging element
+        const clientX = isTouch ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+        const shiftPressed = !isTouch && (e as MouseEvent).shiftKey;
+
+        const deltaX = clientX - dragState.startX;
         const deltaTime = deltaX / pixelsPerSecond;
-        const shiftPressed = e.shiftKey;
 
         // Find if dragging a group
         const draggedElement = elements.find(el => el.id === dragState.elementId);
@@ -323,10 +334,14 @@ const Timeline: React.FC<TimelineProps> = ({
     if (isDraggingPlayhead || dragState) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove, { passive: false });
+      window.addEventListener('touchend', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
     };
   }, [isDraggingPlayhead, dragState, pixelsPerSecond, onSeek, onUpdateElement, findSnapPoints, snapToNearestPoint]);
 
@@ -495,6 +510,7 @@ const Timeline: React.FC<TimelineProps> = ({
             ref={rulerRef}
             className="h-8 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 relative cursor-pointer transition-colors"
             onMouseDown={handleRulerMouseDown}
+            onTouchStart={handleRulerMouseDown}
             onDoubleClick={(e) => {
               if (onAddMarker && rulerRef.current) {
                 const rect = rulerRef.current.getBoundingClientRect();

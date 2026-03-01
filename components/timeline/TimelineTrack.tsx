@@ -10,7 +10,7 @@ interface TimelineTrackProps {
   onSelectElement: (id: string) => void;
   selectedElementId: string | null;
   onUpdateElement: (id: string, updates: Partial<EditorElement>) => void;
-  onElementInteraction: (e: React.MouseEvent, type: 'MOVE' | 'RESIZE_L' | 'RESIZE_R', elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => void;
+  onElementInteraction: (e: React.MouseEvent | React.TouchEvent, type: 'MOVE' | 'RESIZE_L' | 'RESIZE_R', elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => void;
   onInsertTrack?: (afterTrackId: number) => void;
   onDeleteTrack?: (trackId: number) => void;
   trackCount?: number;
@@ -79,6 +79,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               `}
               style={{ left: `${left}px`, width: `${width}px` }}
               onMouseDown={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
+              onTouchStart={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
             >
               {/* Audio Waveform */}
               {(el.type === ElementType.AUDIO || el.type === ElementType.VIDEO) && el.props.src && (
@@ -110,10 +111,12 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
                       <div
                         className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 hover:bg-white/50 cursor-ew-resize"
                         onMouseDown={(e) => onElementInteraction(e, 'RESIZE_L', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
+                        onTouchStart={(e) => onElementInteraction(e, 'RESIZE_L', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
                       ></div>
                       <div
                         className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 hover:bg-white/50 cursor-ew-resize"
                         onMouseDown={(e) => onElementInteraction(e, 'RESIZE_R', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
+                        onTouchStart={(e) => onElementInteraction(e, 'RESIZE_R', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
                       ></div>
                     </>
                   )}
