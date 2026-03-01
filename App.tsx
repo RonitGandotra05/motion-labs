@@ -36,7 +36,15 @@ function App() {
   const [snapEnabled, setSnapEnabled] = useState(true); // Magnetic snap toggle
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'properties' | 'color'>('properties');
+  const [activeMobileTab, setActiveMobileTab] = useState<'timeline' | 'assets' | 'properties'>('timeline');
   const [toolMode, setToolMode] = useState<'pointer' | 'blade' | 'slip' | 'roll'>('pointer');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [project, setProject] = useState<ProjectState>({
     currentTime: 0,
@@ -1196,28 +1204,35 @@ function App() {
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* Left: Assets Panel with resize handle */}
-        <div className="flex-shrink-0 relative" style={{ width: `${leftPanelWidth}px` }}>
-          <AssetsPanel
-            onAddElement={handleAddElement}
-            onUploadMedia={handleUploadMedia}
-            panelWidth={leftPanelWidth}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-          {/* Right edge resize handle */}
-          <div
-            className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
-            onMouseDown={() => setIsResizingLeft(true)}
+      {/* Mobile Tab Bar */}
+      {isMobile && (
+        <div className="flex h-12 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10 shrink-0">
+          <button
+            onClick={() => setActiveMobileTab('timeline')}
+            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'timeline' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
           >
-            <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
-          </div>
+            Timeline
+          </button>
+          <button
+            onClick={() => setActiveMobileTab('assets')}
+            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'assets' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
+          >
+            Assets
+          </button>
+          <button
+            onClick={() => setActiveMobileTab('properties')}
+            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'properties' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
+          >
+            Properties
+          </button>
         </div>
+      )}
 
-        {/* Center: Preview */}
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-950 relative transition-colors min-w-0">
+      {/* Main Workspace */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+        {/* Center: Preview (On mobile, this goes first) */}
+        <div className={`${isMobile ? 'h-[40vh] shrink-0 border-b border-gray-200 dark:border-gray-800 order-first' : 'flex-1 md:order-none'} flex flex-col bg-gray-50 dark:bg-gray-950 relative transition-colors min-w-0`}>
           <VideoPreview
             ref={previewRef}
             currentTime={project.currentTime}
@@ -1232,11 +1247,38 @@ function App() {
           />
         </div>
 
-        {/* Right: Properties/Color Panel with resize handle */}
-        <div className="flex-shrink-0 flex flex-col relative bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 transition-colors" style={{ width: `${rightPanelWidth}px` }}>
-          {/* Left edge resize handle */}
+        {/* Left: Assets Panel with resize handle */}
+        <div
+          className={`relative ${isMobile && activeMobileTab !== 'assets' ? 'hidden' : 'flex flex-1 md:flex-shrink-0'}`}
+          style={{ width: isMobile ? '100%' : `${leftPanelWidth}px` }}
+        >
+          <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
+            <AssetsPanel
+              onAddElement={handleAddElement}
+              onUploadMedia={handleUploadMedia}
+              panelWidth={isMobile ? window.innerWidth : leftPanelWidth}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          </div>
+          {/* Right edge resize handle (Hidden on mobile) */}
           <div
-            className="absolute top-0 left-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
+            className="hidden md:block absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
+            onMouseDown={() => setIsResizingLeft(true)}
+          >
+            <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
+          </div>
+        </div>
+
+        {/* Main Workspace continues here implicitly due to order classes */}
+
+        {/* Right: Properties/Color Panel with resize handle */}
+        <div
+          className={`flex flex-col relative bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 transition-colors ${isMobile && activeMobileTab !== 'properties' ? 'hidden' : 'flex-1 md:flex-shrink-0'}`}
+          style={{ width: isMobile ? '100%' : `${rightPanelWidth}px` }}
+        >
+          {/* Left edge resize handle (hidden on mobile) */}
+          <div
+            className="hidden md:block absolute top-0 left-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
             onMouseDown={() => setIsResizingRight(true)}
           >
             <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
@@ -1274,53 +1316,91 @@ function App() {
             )}
           </div>
         </div>
+
+        {/* Mobile Timeline wrapper inside flex box so it takes remaining height */}
+        {isMobile && activeMobileTab === 'timeline' && (
+          <div className="flex-1 w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 relative z-40">
+            <Timeline
+              tracks={project.tracks}
+              elements={project.elements}
+              currentTime={project.currentTime}
+              duration={project.duration}
+              onSeek={handleSeek}
+              onSelectElement={handleSelectElement}
+              onToggleSelectElement={handleToggleSelectElement}
+              selectedElementId={project.selectedElementId}
+              selectedElementIds={project.selectedElementIds}
+              onUpdateElement={handleUpdateElement}
+              onSplit={handleSplit}
+              pixelsPerSecond={pixelsPerSecond}
+              setPixelsPerSecond={setPixelsPerSecond}
+              onAddAsset={handleAddAssetToTrack}
+              onInsertTrack={handleInsertTrack}
+              onDeleteTrack={handleDeleteTrack}
+              rippleEditMode={rippleEditMode}
+              onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
+              snapEnabled={snapEnabled}
+              onToggleSnap={() => setSnapEnabled(!snapEnabled)}
+              onCloseGaps={handleCloseGaps}
+              markers={project.markers}
+              onAddMarker={handleAddMarker}
+              onUpdateMarker={handleUpdateMarker}
+              onDeleteMarker={handleDeleteMarker}
+              toolMode={toolMode}
+              setToolMode={setToolMode}
+              onSplitElement={handleSplitElement}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Bottom: Timeline */}
-      <div
-        className="flex-shrink-0 z-40 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]"
-        style={{ height: `${timelineHeight}px` }}
-      >
-        {/* Resize Handle */}
+      {/* Bottom: Timeline (Desktop Only) */}
+      {!isMobile && (
         <div
-          className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-50 group"
-          onMouseDown={() => setIsResizingTimeline(true)}
+          className="flex-shrink-0 z-40 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]"
+          style={{ height: `${timelineHeight}px` }}
         >
-          <div className="absolute inset-x-0 top-0 h-1 bg-transparent group-hover:bg-blue-500/50 transition-colors" />
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-12 h-1 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
-        </div>
+          {/* Resize Handle */}
+          <div
+            className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-50 group"
+            onMouseDown={() => setIsResizingTimeline(true)}
+          >
+            <div className="absolute inset-x-0 top-0 h-1 bg-transparent group-hover:bg-blue-500/50 transition-colors" />
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 w-12 h-1 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
+          </div>
 
-        <Timeline
-          tracks={project.tracks}
-          elements={project.elements}
-          currentTime={project.currentTime}
-          duration={project.duration}
-          onSeek={handleSeek}
-          onSelectElement={handleSelectElement}
-          onToggleSelectElement={handleToggleSelectElement}
-          selectedElementId={project.selectedElementId}
-          selectedElementIds={project.selectedElementIds}
-          onUpdateElement={handleUpdateElement}
-          onSplit={handleSplit}
-          pixelsPerSecond={pixelsPerSecond}
-          setPixelsPerSecond={setPixelsPerSecond}
-          onAddAsset={handleAddAssetToTrack}
-          onInsertTrack={handleInsertTrack}
-          onDeleteTrack={handleDeleteTrack}
-          rippleEditMode={rippleEditMode}
-          onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
-          snapEnabled={snapEnabled}
-          onToggleSnap={() => setSnapEnabled(!snapEnabled)}
-          onCloseGaps={handleCloseGaps}
-          markers={project.markers}
-          onAddMarker={handleAddMarker}
-          onUpdateMarker={handleUpdateMarker}
-          onDeleteMarker={handleDeleteMarker}
-          toolMode={toolMode}
-          setToolMode={setToolMode}
-          onSplitElement={handleSplitElement}
-        />
-      </div>
+          <Timeline
+            tracks={project.tracks}
+            elements={project.elements}
+            currentTime={project.currentTime}
+            duration={project.duration}
+            onSeek={handleSeek}
+            onSelectElement={handleSelectElement}
+            onToggleSelectElement={handleToggleSelectElement}
+            selectedElementId={project.selectedElementId}
+            selectedElementIds={project.selectedElementIds}
+            onUpdateElement={handleUpdateElement}
+            onSplit={handleSplit}
+            pixelsPerSecond={pixelsPerSecond}
+            setPixelsPerSecond={setPixelsPerSecond}
+            onAddAsset={handleAddAssetToTrack}
+            onInsertTrack={handleInsertTrack}
+            onDeleteTrack={handleDeleteTrack}
+            rippleEditMode={rippleEditMode}
+            onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
+            snapEnabled={snapEnabled}
+            onToggleSnap={() => setSnapEnabled(!snapEnabled)}
+            onCloseGaps={handleCloseGaps}
+            markers={project.markers}
+            onAddMarker={handleAddMarker}
+            onUpdateMarker={handleUpdateMarker}
+            onDeleteMarker={handleDeleteMarker}
+            toolMode={toolMode}
+            setToolMode={setToolMode}
+            onSplitElement={handleSplitElement}
+          />
+        </div>
+      )}
 
       <KeyboardShortcutsModal
         isOpen={showKeyboardShortcuts}
