@@ -1,51 +1,61 @@
 # Motion Labs
 
-A next-generation browser-based video editor that combines a professional **DaVinci Resolve-style** non-linear editing (NLE) workflow with the power of the web.
+Motion Labs is a browser-based video editor built with React and Vite. It combines a timeline-driven editing workflow with a live canvas preview, a resource manager, and element property controls in a single responsive interface.
 
-Unlike traditional video editors, Motion Labs allows you to mix standard media (video, audio, images) directly with **live React components** and AI-generated elements on the timeline.
+## Live Demo
+
+- [motionlabz.netlify.app](https://motionlabz.netlify.app)
+
+## Current Layout
+
+- Desktop: resource manager on the left, video preview in the center, properties panel on the right, timeline at the bottom.
+- Desktop panes are resizable horizontally, and the timeline is resizable vertically.
+- Mobile: stacked layout with compact header actions and tabbed navigation for timeline, assets, and properties.
 
 ## Features
 
-- 🎬 **Pro NLE Interface**: Multi-track timeline with JKL shuttle controls, snapping, and precise layer management inspired by DaVinci Resolve.
-- ⚛️ **React on Timeline**: Drop fully functional React components onto the timeline as video layers.
-- 🤖 **AI Generation**: Generate custom UI elements or animations on the fly using Generative AI.
-- 🎚️ **Advanced Controls**: Keyframe-ready properties, visibility toggles, track locking, and blending modes.
-- 🌓 **Themed UI**: Sleek dark/light mode adaptable interface.
-- 🚀 **Browser Native**: Built with Vite and React 19 for high-performance client-side rendering.
+- Multi-track timeline editing with snapping, ripple edit mode, markers, and layer controls
+- Canvas-style preview with selectable and editable elements
+- Resource manager for importing, recording, and reusing video, audio, and image assets
+- Element property editing for text, shapes, media, and adjustment layers
+- AI-assisted component and image generation via `@google/genai`
+- Save/load project support and in-browser export flow
+- Dark and light themes
 
 ## Tech Stack
 
-- React 19 + TypeScript
+- React 19
+- TypeScript
 - Vite 6
-- @google/genai (for AI-generated asset experiments)
+- IndexedDB for local project and asset persistence
+- Netlify-ready static deployment via `dist/`
 
-## Getting Started
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the local dev server printed in the terminal.
+## Production Build
 
-## Scripts
+```bash
+npm run build
+npm run preview
+```
 
-- `npm run dev` — start the development server
-- `npm run build` — build for production
-- `npm run preview` — preview the production build
+Netlify is configured through `netlify.toml` to publish the Vite `dist` output.
 
 ## Project Structure
 
-- `App.tsx` — main editor shell and state management
-- `components/` — editor UI, timeline, panels, and preview
-- `services/` — API/AI integrations
-- `utils/` — helpers and local data utilities
-- `constants.ts` / `types.ts` — shared config and types
+- `App.tsx` — root editor shell, responsive layout, and editor state
+- `components/panels/` — assets, properties, settings, audio, and color panels
+- `components/preview/` — canvas/video preview surface
+- `components/timeline/` — timeline tracks, waveform, and editing controls
+- `services/` — Gemini integration helpers
+- `utils/` — IndexedDB, history, and project file helpers
 
 ## Notes
 
-This is a prototype editor UI. Media processing/export may be partial or mocked, depending on the panel implementation.
-
-## License
-
-Add a license if you plan to distribute or open-source this project.
+- This is still a prototype editor. Some media processing and export paths are simplified.
+- AI generation features require a valid Gemini API key in settings.

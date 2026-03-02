@@ -309,7 +309,13 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full transition-colors relative" style={{ width: panelWidth ? `${panelWidth}px` : '280px' }}>
+    <div
+      className="relative flex h-full min-w-0 w-full flex-col overflow-x-hidden border-r border-gray-200 bg-white transition-colors dark:border-gray-800 dark:bg-gray-900"
+      style={{
+        width: panelWidth ? `${panelWidth}px` : '280px',
+        maxWidth: '100%'
+      }}
+    >
 
       {/* Recording Overlay */}
       {isRecording && (
@@ -347,14 +353,14 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
         <button onClick={() => setActiveTab('image')} className={`flex-1 py-3 text-xs font-semibold transition-colors ${activeTab === 'image' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Image Gen</button>
       </div>
 
-      <div className="p-4 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+      <div className="flex-1 space-y-6 overflow-x-hidden overflow-y-auto p-4 custom-scrollbar">
 
         {activeTab === 'library' && (
           <>
             {/* Recording Actions */}
             <div className="space-y-2">
               <h3 className="text-[10px] text-gray-500 dark:text-gray-500 uppercase font-bold">Record</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 max-[360px]:grid-cols-2">
                 <button
                   onClick={() => startRecording(ElementType.VIDEO, 'camera')}
                   className="flex flex-col items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 rounded hover:bg-red-50 dark:hover:bg-red-900/20 group border border-transparent hover:border-red-500/30 transition"
@@ -395,7 +401,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
               </h3>
 
               <div
-                className="space-y-2 min-h-[100px] border-2 border-dashed border-transparent hover:border-blue-300 dark:hover:border-blue-700 rounded-lg transition-colors"
+                className="min-h-[100px] space-y-2 rounded-lg border-2 border-dashed border-transparent transition-colors hover:border-blue-300 dark:hover:border-blue-700"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               >

@@ -1216,58 +1216,69 @@ function App() {
   const selectedElement = project.elements.find(el => el.id === project.selectedElementId) || null;
 
   return (
-    <div ref={appRef} className="flex flex-col h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-200">
+    <div ref={appRef} className="flex h-screen flex-col overflow-x-hidden bg-white text-gray-900 transition-colors duration-200 dark:bg-black dark:text-white">
       {/* Header */}
-      <header className="h-12 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 justify-between z-50 transition-colors">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shadow-md">
-            <LayersIcon className="text-white" />
+      <header className="z-50 border-b border-gray-200 bg-white px-3 py-2 transition-colors dark:border-gray-800 dark:bg-gray-900 md:h-12 md:px-4 md:py-0">
+        <div className="flex items-center justify-between gap-3 md:h-full">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 flex-none items-center justify-center rounded bg-blue-600 shadow-md">
+              <LayersIcon className="text-white" />
+            </div>
+            <h1 className="min-w-0 text-base font-bold tracking-tight text-gray-900 dark:text-white md:text-lg">
+              Motion <span className="text-blue-600 dark:text-blue-500">Labs</span>
+            </h1>
           </div>
-          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">Motion <span className="text-blue-600 dark:text-blue-500">Labs</span></h1>
+
+          <div className="flex flex-none items-center gap-1 md:gap-2">
+            <button onClick={toggleTheme} className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+              {isDarkMode ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              title="Keyboard Shortcuts"
+            >
+              <span className="text-sm">⌨️</span>
+            </button>
+            {!isMobile && <div className="text-xs text-gray-500 dark:text-gray-500">v2.3-save-load</div>}
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors">
-            {isDarkMode ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setShowKeyboardShortcuts(true)}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
-            title="Keyboard Shortcuts"
-          >
-            <span className="text-sm">⌨️</span>
-          </button>
+
+        <div className="mt-2 grid grid-cols-4 gap-2 md:mt-0 md:flex md:items-center md:justify-end md:gap-4">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="text-xs px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 md:px-3 md:py-1.5 md:text-xs"
           >
             Settings
           </button>
-          {/* Save/Load Project Buttons */}
           <button
             onClick={handleSaveProject}
-            className="text-xs px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center space-x-1.5"
+            className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 md:px-3 md:py-1.5 md:text-xs"
             title="Save project to file (.motionlabs)"
           >
-            <SaveIcon className="w-3.5 h-3.5" />
+            <SaveIcon className="h-3.5 w-3.5" />
             <span>Save</span>
           </button>
           <button
             onClick={handleLoadProject}
-            className="text-xs px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center space-x-1.5"
+            className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 md:px-3 md:py-1.5 md:text-xs"
             title="Load project from file (.motionlabs)"
           >
-            <FolderOpenIcon className="w-3.5 h-3.5" />
+            <FolderOpenIcon className="h-3.5 w-3.5" />
             <span>Load</span>
           </button>
-          <div className="text-xs text-gray-500 dark:text-gray-500">v2.3-save-load</div>
           <button
             onClick={handleExport}
-            className="bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 px-4 py-1.5 rounded text-xs font-semibold transition flex items-center space-x-2 text-white shadow-sm"
+            className="flex items-center justify-center gap-1 rounded bg-blue-600 px-2 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:hover:bg-blue-500 md:px-4 md:py-1.5 md:text-xs"
           >
-            <DownloadIcon className="w-4 h-4" />
+            <DownloadIcon className="h-4 w-4" />
             <span>Export</span>
           </button>
         </div>
+
+        {isMobile && (
+          <div className="mt-2 text-[10px] text-gray-500 dark:text-gray-500">v2.3-save-load</div>
+        )}
       </header>
 
       {/* Mobile Tab Bar */}
