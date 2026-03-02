@@ -51,7 +51,51 @@ function App() {
   const [toolMode, setToolMode] = useState<'pointer' | 'blade' | 'slip' | 'roll'>('pointer');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
-  const [previewZoom, setPreviewZoom] = useState(100);
+
+  const parseAspectRatio = (ratio: string) => {
+    const [width, height] = ratio.split(':').map(Number);
+    if (!width || !height) return DEFAULT_PREVIEW_ASPECT_RATIO;
+    return width / height;
+  };
+
+  const fitMediaToFrame = (sourceAspectRatio: number, frameAspectRatio: number) => {
+    if (sourceAspectRatio >= frameAspectRatio) {
+      return {
+        width: 100,
+        height: (frameAspectRatio / sourceAspectRatio) * 100
+      };
+    }
+
+    return {
+      width: (sourceAspectRatio / frameAspectRatio) * 100,
+      height: 100
+    };
+  };
+
+  const applyPreviewAspectRatio = useCallback((ratio: string) => {
+    const frameAspectRatio = parseAspectRatio(ratio);
+    setPreviewAspectRatio(ratio);
+    setProject(prev => ({
+      ...prev,
+      elements: prev.elements.map(el => {
+        if (
+          (el.type !== ElementType.VIDEO && el.type !== ElementType.IMAGE) ||
+          !el.props.sourceAspectRatio
+        ) {
+          return el;
+        }
+
+        const fitted = fitMediaToFrame(el.props.sourceAspectRatio, frameAspectRatio);
+        return {
+          ...el,
+          x: (100 - fitted.width) / 2,
+          y: (100 - fitted.height) / 2,
+          width: fitted.width,
+          height: fitted.height
+        };
+      })
+    }));
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -739,20 +783,16 @@ function App() {
       const dimensions = await loadMediaDimensions(customProps.src, type);
       if (dimensions?.width && dimensions?.height) {
         const sourceAspectRatio = dimensions.width / dimensions.height;
-
-        if (sourceAspectRatio >= DEFAULT_PREVIEW_ASPECT_RATIO) {
-          width = 100;
-          height = (DEFAULT_PREVIEW_ASPECT_RATIO / sourceAspectRatio) * 100;
-        } else {
-          height = 100;
-          width = (sourceAspectRatio / DEFAULT_PREVIEW_ASPECT_RATIO) * 100;
-        }
+        const fitted = fitMediaToFrame(sourceAspectRatio, parseAspectRatio(previewAspectRatio));
+        width = fitted.width;
+        height = fitted.height;
 
         defaultProps = {
           ...defaultProps,
           sourceWidth: dimensions.width,
           sourceHeight: dimensions.height,
-          sourceAspectRatio
+          sourceAspectRatio,
+          mediaZoom: 1
         };
       }
     }
@@ -1371,9 +1411,7 @@ function App() {
                 onDurationChange={handleUpdateDuration}
                 togglePlay={togglePlay}
                 aspectRatio={previewAspectRatio}
-                onAspectRatioChange={setPreviewAspectRatio}
-                zoom={previewZoom}
-                onZoomChange={setPreviewZoom}
+                onAspectRatioChange={applyPreviewAspectRatio}
               />
             </div>
 
@@ -1493,9 +1531,7 @@ function App() {
                   onDurationChange={handleUpdateDuration}
                   togglePlay={togglePlay}
                   aspectRatio={previewAspectRatio}
-                  onAspectRatioChange={setPreviewAspectRatio}
-                  zoom={previewZoom}
-                  onZoomChange={setPreviewZoom}
+                  onAspectRatioChange={applyPreviewAspectRatio}
                 />
               </div>
 

@@ -13,8 +13,6 @@ interface VideoPreviewProps {
   togglePlay: () => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
-  zoom: number;
-  onZoomChange: (zoom: number) => void;
 }
 
 export interface VideoPreviewHandle {
@@ -31,9 +29,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   onTimeUpdate,
   togglePlay,
   aspectRatio,
-  onAspectRatioChange,
-  zoom,
-  onZoomChange
+  onAspectRatioChange
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const aspectRatioPresets = ['16:9', '9:16', '4:5', '1:1', '4:3', '3:4', '9:4'];
@@ -42,6 +38,12 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     if (!width || !height) return 16 / 9;
     return width / height;
   })();
+  const selectedMediaElement = elements.find(
+    element =>
+      element.id === selectedElementId &&
+      (element.type === ElementType.VIDEO || element.type === ElementType.IMAGE)
+  );
+  const selectedMediaZoom = selectedMediaElement?.props.mediaZoom ?? 1;
 
   // Dragging State
   const [isDragging, setIsDragging] = useState(false);
@@ -597,12 +599,24 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
             data-element-id={el.id}
             src={el.props.src}
             className="w-full h-full object-contain pointer-events-none"
-            style={{ borderRadius: contentStyle.borderRadius }}
+            style={{
+              borderRadius: contentStyle.borderRadius,
+              transform: `scale(${el.props.mediaZoom ?? 1})`,
+              transformOrigin: 'center center'
+            }}
           />
         )}
 
         {el.type === ElementType.IMAGE && el.props.src && (
-          <img src={el.props.src} className="w-full h-full object-contain pointer-events-none" style={{ borderRadius: contentStyle.borderRadius }} />
+          <img
+            src={el.props.src}
+            className="w-full h-full object-contain pointer-events-none"
+            style={{
+              borderRadius: contentStyle.borderRadius,
+              transform: `scale(${el.props.mediaZoom ?? 1})`,
+              transformOrigin: 'center center'
+            }}
+          />
         )}
 
         {(el.type === ElementType.TEXT || el.type === ElementType.SHAPE) && (
@@ -643,18 +657,22 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
           ))}
         </select>
 
-        <label className="ml-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">Zoom</label>
+        <label className="ml-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">Media Zoom</label>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onZoomChange(Math.max(50, zoom - 10))}
-            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
+            onClick={() => selectedMediaElement && onUpdateElement(selectedMediaElement.id, { props: { ...selectedMediaElement.props, mediaZoom: Math.max(0.5, selectedMediaZoom - 0.1) } })}
+            disabled={!selectedMediaElement}
+            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
           >
             -
           </button>
-          <span className="min-w-10 text-center text-xs text-gray-700 dark:text-gray-200">{zoom}%</span>
+          <span className="min-w-14 text-center text-xs text-gray-700 dark:text-gray-200">
+            {selectedMediaElement ? `${Math.round(selectedMediaZoom * 100)}%` : 'Select'}
+          </span>
           <button
-            onClick={() => onZoomChange(Math.min(200, zoom + 10))}
-            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
+            onClick={() => selectedMediaElement && onUpdateElement(selectedMediaElement.id, { props: { ...selectedMediaElement.props, mediaZoom: Math.min(3, selectedMediaZoom + 0.1) } })}
+            disabled={!selectedMediaElement}
+            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
           >
             +
           </button>
@@ -667,9 +685,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         style={{
           width: '80%',
           aspectRatio: `${parsedAspectRatio}`,
-          maxHeight: '80%',
-          transform: `scale(${zoom / 100})`,
-          transformOrigin: 'center center'
+          maxHeight: '80%'
         }}
         onClick={() => onSelectElement(null)}
       >

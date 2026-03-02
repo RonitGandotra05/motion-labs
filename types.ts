@@ -37,6 +37,7 @@ export interface ElementProps {
   sourceWidth?: number;
   sourceHeight?: number;
   sourceAspectRatio?: number;
+  mediaZoom?: number;
   borderColor?: string;
   borderWidth?: number;
   volume?: number; // 0-1

@@ -395,6 +395,23 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </button>
                         )}
 
+                        {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) && (
+                            <div className="pt-2">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Media Zoom ({Math.round((element.props.mediaZoom ?? 1) * 100)}%)
+                                </span>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="3"
+                                    step="0.1"
+                                    value={element.props.mediaZoom ?? 1}
+                                    onChange={(e) => handleChange('mediaZoom', Number(e.target.value))}
+                                    className="mt-1 w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                />
+                            </div>
+                        )}
+
                         {/* Lock Aspect Ratio */}
                         <button
                             onClick={() => onUpdate(element.id, { lockAspectRatio: !element.lockAspectRatio })}
