@@ -401,9 +401,15 @@ const Timeline: React.FC<TimelineProps> = ({
               <MousePointerIcon className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setToolMode?.('blade')}
+              onClick={() => {
+                if (window.innerWidth < 768) {
+                  onSplit();
+                  return;
+                }
+                setToolMode?.('blade');
+              }}
               className={`p-1.5 rounded transition ${toolMode === 'blade' ? 'bg-white dark:bg-gray-600 shadow text-red-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
-              title="Blade Tool (B)"
+              title={window.innerWidth < 768 ? 'Split at Playhead' : 'Blade Tool (B)'}
             >
               <ScissorsIcon className="w-4 h-4" />
             </button>
