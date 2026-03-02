@@ -164,6 +164,8 @@ export interface Track {
   isVisible: boolean;
   isLocked: boolean;
   type: 'video' | 'audio' | 'overlay';
+  volume?: number; // 0-1 for track level volume
+  pan?: number; // -1 to 1 for track level panning
 }
 
 export interface ProjectState {
