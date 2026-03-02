@@ -34,6 +34,9 @@ export interface ElementProps {
   borderRadius?: number;
   opacity?: number; // 0-1, default 1
   src?: string; // For images/videos/audio
+  sourceWidth?: number;
+  sourceHeight?: number;
+  sourceAspectRatio?: number;
   borderColor?: string;
   borderWidth?: number;
   volume?: number; // 0-1
@@ -188,4 +191,3 @@ export interface GeneratedComponentConfig {
   props: ElementProps;
   name: string;
 }
-

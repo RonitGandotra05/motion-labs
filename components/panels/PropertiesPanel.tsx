@@ -26,6 +26,14 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
         onUpdate(element.id, { [key]: value });
     };
 
+    const resetToNativeAspectRatio = () => {
+        const sourceAspectRatio = element.props.sourceAspectRatio;
+        if (!sourceAspectRatio) return;
+
+        const nextHeight = element.width / sourceAspectRatio;
+        onUpdate(element.id, { height: nextHeight });
+    };
+
     const isMedia = element.type === ElementType.VIDEO || element.type === ElementType.AUDIO;
 
     return (
@@ -376,6 +384,16 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             <span>⛶</span>
                             <span>Fit to Frame (100%)</span>
                         </button>
+
+                        {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) && element.props.sourceAspectRatio && (
+                            <button
+                                onClick={resetToNativeAspectRatio}
+                                className="w-full py-1.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded text-xs transition flex items-center justify-center space-x-1"
+                            >
+                                <span>▣</span>
+                                <span>Reset to Native Ratio</span>
+                            </button>
+                        )}
 
                         {/* Lock Aspect Ratio */}
                         <button

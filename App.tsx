@@ -15,6 +15,7 @@ import KeyboardShortcutsModal from './components/ui/KeyboardShortcutsModal';
 import ExportModal from './components/ui/ExportModal';
 
 const OLD_STORAGE_KEY = 'reactframe_project'; // For migration from localStorage
+const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
 
 function App() {
   const MIN_SIDE_PANEL_WIDTH = 240;
@@ -49,6 +50,8 @@ function App() {
   const [activeMobileTab, setActiveMobileTab] = useState<'timeline' | 'assets' | 'properties'>('timeline');
   const [toolMode, setToolMode] = useState<'pointer' | 'blade' | 'slip' | 'roll'>('pointer');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
+  const [previewZoom, setPreviewZoom] = useState(100);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -601,6 +604,29 @@ function App() {
     handleAddElement(type, { src: url, name: file.name });
   };
 
+  const loadMediaDimensions = (src: string, type: ElementType): Promise<{ width: number; height: number } | null> => {
+    if (type === ElementType.IMAGE) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+    }
+
+    if (type === ElementType.VIDEO) {
+      return new Promise(resolve => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => resolve({ width: video.videoWidth, height: video.videoHeight });
+        video.onerror = () => resolve(null);
+        video.src = src;
+      });
+    }
+
+    return Promise.resolve(null);
+  };
+
   const handleAddAssetToTrack = async (assetId: string, trackId: number, startTime: number) => {
     const asset = await getAssetById(assetId);
     if (asset) {
@@ -609,7 +635,7 @@ function App() {
     }
   };
 
-  const handleAddElement = (type: ElementType, customProps?: any, overrideTrackId?: number, overrideStartTime?: number) => {
+  const handleAddElement = async (type: ElementType, customProps?: any, overrideTrackId?: number, overrideStartTime?: number) => {
     const id = Math.random().toString(36).substr(2, 9);
 
     let defaultProps: ElementProps = {};
@@ -709,6 +735,28 @@ function App() {
       }
     }
 
+    if ((type === ElementType.VIDEO || type === ElementType.IMAGE) && customProps?.src) {
+      const dimensions = await loadMediaDimensions(customProps.src, type);
+      if (dimensions?.width && dimensions?.height) {
+        const sourceAspectRatio = dimensions.width / dimensions.height;
+
+        if (sourceAspectRatio >= DEFAULT_PREVIEW_ASPECT_RATIO) {
+          width = 100;
+          height = (DEFAULT_PREVIEW_ASPECT_RATIO / sourceAspectRatio) * 100;
+        } else {
+          height = 100;
+          width = (sourceAspectRatio / DEFAULT_PREVIEW_ASPECT_RATIO) * 100;
+        }
+
+        defaultProps = {
+          ...defaultProps,
+          sourceWidth: dimensions.width,
+          sourceHeight: dimensions.height,
+          sourceAspectRatio
+        };
+      }
+    }
+
     const newElement: EditorElement = {
       id,
       type,
@@ -717,12 +765,13 @@ function App() {
       startTime: overrideStartTime !== undefined ? overrideStartTime : project.currentTime,
       duration,
       mediaOffset: 0,
-      x: type === ElementType.VIDEO || type === ElementType.IMAGE ? 0 : 50 - (width / 2),
-      y: type === ElementType.VIDEO || type === ElementType.IMAGE ? 0 : 50 - (height / 2),
+      x: type === ElementType.VIDEO || type === ElementType.IMAGE ? (100 - width) / 2 : 50 - (width / 2),
+      y: type === ElementType.VIDEO || type === ElementType.IMAGE ? (100 - height) / 2 : 50 - (height / 2),
       width,
       height,
       rotation: 0,
       zIndex: project.elements.length, // New elements on top
+      lockAspectRatio: type === ElementType.VIDEO || type === ElementType.IMAGE,
       props: defaultProps,
       ...(customProps?.assetId && { assetId: customProps.assetId })
     } as EditorElement;
@@ -1321,6 +1370,10 @@ function App() {
                 onTimeUpdate={handleSeek}
                 onDurationChange={handleUpdateDuration}
                 togglePlay={togglePlay}
+                aspectRatio={previewAspectRatio}
+                onAspectRatioChange={setPreviewAspectRatio}
+                zoom={previewZoom}
+                onZoomChange={setPreviewZoom}
               />
             </div>
 
@@ -1439,6 +1492,10 @@ function App() {
                   onTimeUpdate={handleSeek}
                   onDurationChange={handleUpdateDuration}
                   togglePlay={togglePlay}
+                  aspectRatio={previewAspectRatio}
+                  onAspectRatioChange={setPreviewAspectRatio}
+                  zoom={previewZoom}
+                  onZoomChange={setPreviewZoom}
                 />
               </div>
 

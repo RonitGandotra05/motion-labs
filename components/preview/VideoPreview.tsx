@@ -11,6 +11,10 @@ interface VideoPreviewProps {
   onUpdateElement: (id: string, updates: Partial<EditorElement>) => void;
   onTimeUpdate: (time: number) => void;
   togglePlay: () => void;
+  aspectRatio: string;
+  onAspectRatioChange: (ratio: string) => void;
+  zoom: number;
+  onZoomChange: (zoom: number) => void;
 }
 
 export interface VideoPreviewHandle {
@@ -25,9 +29,19 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   onSelectElement,
   onUpdateElement,
   onTimeUpdate,
-  togglePlay
+  togglePlay,
+  aspectRatio,
+  onAspectRatioChange,
+  zoom,
+  onZoomChange
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const aspectRatioPresets = ['16:9', '9:16', '4:5', '1:1', '4:3', '3:4', '9:4'];
+  const parsedAspectRatio = (() => {
+    const [width, height] = aspectRatio.split(':').map(Number);
+    if (!width || !height) return 16 / 9;
+    return width / height;
+  })();
 
   // Dragging State
   const [isDragging, setIsDragging] = useState(false);
@@ -316,11 +330,39 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         if (resizeHandle.includes('s')) applyYChange(ldYPercent, false);
         if (resizeHandle.includes('n')) applyYChange(ldYPercent, true);
 
+        const nextWidth = Math.max(1, newW);
+        const nextHeight = Math.max(1, newH);
+        const shouldLockAspectRatio = elements.find(element => element.id === selectedElementId)?.lockAspectRatio;
+
+        if (shouldLockAspectRatio) {
+          const selectedElement = elements.find(element => element.id === selectedElementId);
+          const lockedAspectRatio =
+            selectedElement?.props.sourceAspectRatio ||
+            (initialElementState.w > 0 && initialElementState.h > 0 ? initialElementState.w / initialElementState.h : 1);
+
+          let adjustedWidth = nextWidth;
+          let adjustedHeight = nextHeight;
+
+          if (resizeHandle === 'n' || resizeHandle === 's') {
+            adjustedWidth = adjustedHeight * lockedAspectRatio;
+          } else {
+            adjustedHeight = adjustedWidth / lockedAspectRatio;
+          }
+
+          onUpdateElement(selectedElementId, {
+            x: newX,
+            y: newY,
+            width: Math.max(1, adjustedWidth),
+            height: Math.max(1, adjustedHeight)
+          });
+          return;
+        }
+
         onUpdateElement(selectedElementId, {
           x: newX,
           y: newY,
-          width: Math.max(1, newW),
-          height: Math.max(1, newH)
+          width: nextWidth,
+          height: nextHeight
         });
       }
     };
@@ -554,13 +596,13 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
           <video
             data-element-id={el.id}
             src={el.props.src}
-            className="w-full h-full object-cover pointer-events-none"
+            className="w-full h-full object-contain pointer-events-none"
             style={{ borderRadius: contentStyle.borderRadius }}
           />
         )}
 
         {el.type === ElementType.IMAGE && el.props.src && (
-          <img src={el.props.src} className="w-full h-full object-cover pointer-events-none" style={{ borderRadius: contentStyle.borderRadius }} />
+          <img src={el.props.src} className="w-full h-full object-contain pointer-events-none" style={{ borderRadius: contentStyle.borderRadius }} />
         )}
 
         {(el.type === ElementType.TEXT || el.type === ElementType.SHAPE) && (
@@ -588,12 +630,47 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-black relative overflow-hidden transition-colors">
+    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gray-100 transition-colors dark:bg-black">
+      <div className="absolute left-3 top-3 z-50 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/85">
+        <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Frame</label>
+        <select
+          value={aspectRatio}
+          onChange={(e) => onAspectRatioChange(e.target.value)}
+          className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        >
+          {aspectRatioPresets.map(preset => (
+            <option key={preset} value={preset}>{preset}</option>
+          ))}
+        </select>
+
+        <label className="ml-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">Zoom</label>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onZoomChange(Math.max(50, zoom - 10))}
+            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
+          >
+            -
+          </button>
+          <span className="min-w-10 text-center text-xs text-gray-700 dark:text-gray-200">{zoom}%</span>
+          <button
+            onClick={() => onZoomChange(Math.min(200, zoom + 10))}
+            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
+          >
+            +
+          </button>
+        </div>
+      </div>
 
       <div
         ref={containerRef}
         className="relative shadow-2xl bg-white dark:bg-gray-900 overflow-hidden transition-colors group"
-        style={{ width: '80%', aspectRatio: '16/9' }}
+        style={{
+          width: '80%',
+          aspectRatio: `${parsedAspectRatio}`,
+          maxHeight: '80%',
+          transform: `scale(${zoom / 100})`,
+          transformOrigin: 'center center'
+        }}
         onClick={() => onSelectElement(null)}
       >
         {elements.filter(e => e.type === ElementType.AUDIO && e.props.src).map(el => (
