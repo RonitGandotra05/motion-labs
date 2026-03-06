@@ -124,6 +124,11 @@ const Timeline: React.FC<TimelineProps> = ({
     return { snapped: nearestPoint, didSnap: minDistance < thresholdTime };
   }, [pixelsPerSecond]);
 
+  const removeCurrentSnapPoint = (snapPoints: number[], currentPoint: number, deltaTime: number) => {
+    if (deltaTime === 0) return snapPoints;
+    return snapPoints.filter(point => Math.abs(point - currentPoint) > 0.0001);
+  };
+
   // -- Playhead Logic --
   const handleRulerMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDraggingPlayhead(true);
@@ -229,7 +234,11 @@ const Timeline: React.FC<TimelineProps> = ({
           }
 
           // Apply magnetic snapping (primary element only)
-          const snapPoints = findSnapPoints(newTrackId, dragState.elementId);
+          const snapPoints = removeCurrentSnapPoint(
+            findSnapPoints(newTrackId, dragState.elementId),
+            dragState.originalStartTime,
+            deltaTime
+          );
           const startSnap = snapToNearestPoint(newStartTime, snapPoints, shiftPressed);
 
           if (startSnap.didSnap) {
@@ -262,7 +271,11 @@ const Timeline: React.FC<TimelineProps> = ({
           // ... (Resize logic typically doesn't affect group members unless we want 'ripple' effect, but standard Group doesn't resize together usually)
           // For now, only resize the specific element.
           let newEndTime = dragState.originalStartTime + dragState.originalDuration + deltaTime;
-          const snapPoints = findSnapPoints(dragState.originalTrackId, dragState.elementId);
+          const snapPoints = removeCurrentSnapPoint(
+            findSnapPoints(dragState.originalTrackId, dragState.elementId),
+            dragState.originalStartTime + dragState.originalDuration,
+            deltaTime
+          );
           const snap = snapToNearestPoint(newEndTime, snapPoints, shiftPressed);
 
           if (snap.didSnap) {
@@ -281,7 +294,11 @@ const Timeline: React.FC<TimelineProps> = ({
           // ...
           let newStartTime = dragState.originalStartTime + deltaTime;
           // ... (snapping logic)
-          const snapPoints = findSnapPoints(dragState.originalTrackId, dragState.elementId);
+          const snapPoints = removeCurrentSnapPoint(
+            findSnapPoints(dragState.originalTrackId, dragState.elementId),
+            dragState.originalStartTime,
+            deltaTime
+          );
           const snap = snapToNearestPoint(newStartTime, snapPoints, shiftPressed);
 
           if (snap.didSnap) {
