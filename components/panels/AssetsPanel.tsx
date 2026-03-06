@@ -12,30 +12,9 @@ interface AssetsPanelProps {
   onOpenSettings?: () => void;
 }
 
-const SUPPORTED_MEDIA_ACCEPT = [
-  'video/*',
-  'audio/*',
-  'image/*',
-  '.mp4',
-  '.mov',
-  '.webm',
-  '.mkv',
-  '.avi',
-  '.mp3',
-  '.wav',
-  '.m4a',
-  '.aac',
-  '.ogg',
-  '.flac',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.webp',
-  '.gif',
-  '.bmp',
-  '.svg',
-  '.avif'
-].join(',');
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v', 'mpeg', 'mpg', '3gp', 'ogv', 'wmv', 'flv', 'f4v', 'ts', 'm2ts', 'mts', 'asf', 'qt', 'vob'];
+const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga', 'flac', 'aiff', 'aif', 'weba', 'wma', 'alac', 'amr', 'opus', 'mid', 'midi', 'mp2', 'ac3'];
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif', 'heic', 'heif', 'tif', 'tiff', 'ico', 'raw', 'dng'];
 
 const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onOpenSettings }) => {
   const [activeTab, setActiveTab] = useState<'library' | 'image'>('library');
@@ -126,14 +105,18 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   };
 
   const getAssetTypeForFile = (file: File) => {
-    if (file.type.startsWith('video/')) return ElementType.VIDEO;
-    if (file.type.startsWith('audio/')) return ElementType.AUDIO;
-    if (file.type.startsWith('image/')) return ElementType.IMAGE;
+    const normalizedType = file.type.toLowerCase();
+    if (normalizedType.startsWith('video/') || normalizedType.includes('video')) return ElementType.VIDEO;
+    if (normalizedType.startsWith('audio/') || normalizedType.includes('audio') || normalizedType === 'application/ogg') return ElementType.AUDIO;
+    if (normalizedType.startsWith('image/') || normalizedType.includes('image')) return ElementType.IMAGE;
 
     const lowerName = file.name.toLowerCase();
-    if (/\.(mp4|mov|webm|mkv|avi|m4v|mpeg|mpg|3gp|ogv)$/i.test(lowerName)) return ElementType.VIDEO;
-    if (/\.(mp3|wav|m4a|aac|ogg|oga|flac|aiff|aif|weba)$/i.test(lowerName)) return ElementType.AUDIO;
-    if (/\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i.test(lowerName)) return ElementType.IMAGE;
+    const extension = lowerName.includes('.') ? lowerName.split('.').pop() : '';
+    if (!extension) return null;
+
+    if (VIDEO_EXTENSIONS.includes(extension)) return ElementType.VIDEO;
+    if (AUDIO_EXTENSIONS.includes(extension)) return ElementType.AUDIO;
+    if (IMAGE_EXTENSIONS.includes(extension)) return ElementType.IMAGE;
 
     return null;
   };
@@ -622,11 +605,11 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
                 Resource Manager
                 <label className="cursor-pointer text-blue-500 hover:text-blue-400 text-[10px] flex items-center bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
                   <PlusIcon className="w-3 h-3 mr-1" /> Import
-                  <input type="file" className="hidden" multiple accept={SUPPORTED_MEDIA_ACCEPT} onChange={handleFileUpload} />
+                  <input type="file" className="hidden" multiple onChange={handleFileUpload} />
                 </label>
               </h3>
               <p className="mb-3 text-[10px] text-gray-500 dark:text-gray-400">
-                Mixed imports supported: MP4, MOV, WEBM, MP3, WAV, M4A, PNG, JPG, WEBP and more.
+                Mixed imports supported across common audio, video, and photo formats, including MP4, MOV, MKV, MP3, WAV, FLAC, PNG, JPG, HEIC, TIFF and more.
               </p>
 
               <div
