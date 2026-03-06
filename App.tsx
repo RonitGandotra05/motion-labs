@@ -906,7 +906,14 @@ function App() {
           newElements.push(rightPart);
         }
       });
-      return modified ? { ...prev, elements: newElements, selectedElementId: null } : prev;
+      return modified
+        ? {
+            ...prev,
+            elements: newElements,
+            selectedElementId: null,
+            selectedElementIds: []
+          }
+        : prev;
     });
   };
 
