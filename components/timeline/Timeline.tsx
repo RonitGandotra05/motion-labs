@@ -89,13 +89,13 @@ const Timeline: React.FC<TimelineProps> = ({
   } | null>(null);
 
   // Snap indicator state
-  const [snapIndicator, setSnapIndicator] = useState<{ time: number; trackId: number } | null>(null);
+  const [snapIndicator, setSnapIndicator] = useState<{ time: number } | null>(null);
 
-  // Helper: Find all snap points (element edges + playhead) on a given track, excluding the dragged element
-  const findSnapPoints = useCallback((trackId: number, excludeElementId: string): number[] => {
+  // Helper: Find all snap points (element edges + playhead) across the full timeline, excluding the dragged element
+  const findSnapPoints = useCallback((excludeElementId: string): number[] => {
     const points: number[] = [0, currentTime]; // Include time 0 and playhead position
     elements
-      .filter(el => el.trackId === trackId && el.id !== excludeElementId)
+      .filter(el => el.id !== excludeElementId)
       .forEach(el => {
         points.push(el.startTime); // Start edge
         points.push(el.startTime + el.duration); // End edge
@@ -235,7 +235,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
           // Apply magnetic snapping (primary element only)
           const snapPoints = removeCurrentSnapPoint(
-            findSnapPoints(newTrackId, dragState.elementId),
+            findSnapPoints(dragState.elementId),
             dragState.originalStartTime,
             deltaTime
           );
@@ -243,7 +243,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
           if (startSnap.didSnap) {
             newStartTime = startSnap.snapped;
-            setSnapIndicator({ time: startSnap.snapped, trackId: newTrackId });
+            setSnapIndicator({ time: startSnap.snapped });
           } else {
             setSnapIndicator(null);
           }
@@ -272,7 +272,7 @@ const Timeline: React.FC<TimelineProps> = ({
           // For now, only resize the specific element.
           let newEndTime = dragState.originalStartTime + dragState.originalDuration + deltaTime;
           const snapPoints = removeCurrentSnapPoint(
-            findSnapPoints(dragState.originalTrackId, dragState.elementId),
+            findSnapPoints(dragState.elementId),
             dragState.originalStartTime + dragState.originalDuration,
             deltaTime
           );
@@ -280,7 +280,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
           if (snap.didSnap) {
             newEndTime = snap.snapped;
-            setSnapIndicator({ time: snap.snapped, trackId: dragState.originalTrackId });
+            setSnapIndicator({ time: snap.snapped });
           } else {
             setSnapIndicator(null);
           }
@@ -295,7 +295,7 @@ const Timeline: React.FC<TimelineProps> = ({
           let newStartTime = dragState.originalStartTime + deltaTime;
           // ... (snapping logic)
           const snapPoints = removeCurrentSnapPoint(
-            findSnapPoints(dragState.originalTrackId, dragState.elementId),
+            findSnapPoints(dragState.elementId),
             dragState.originalStartTime,
             deltaTime
           );
@@ -303,7 +303,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
           if (snap.didSnap) {
             newStartTime = snap.snapped;
-            setSnapIndicator({ time: snap.snapped, trackId: dragState.originalTrackId });
+            setSnapIndicator({ time: snap.snapped });
           } else {
             setSnapIndicator(null);
           }
