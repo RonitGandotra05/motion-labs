@@ -32,7 +32,16 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   onAspectRatioChange
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const aspectRatioPresets = ['16:9', '9:16', '4:5', '1:1', '4:3', '3:4', '9:4'];
+  const aspectRatioPresets = [
+    { value: '16:9', label: 'YouTube Thumbnail', detail: 'Thumbnail / landscape' },
+    { value: '9:16', label: 'Shorts', detail: 'Vertical video' },
+    { value: '4:5', label: 'Instagram Portrait', detail: 'Feed portrait' },
+    { value: '1:1', label: 'Square', detail: 'Post / album' },
+    { value: '4:3', label: 'Classic Landscape', detail: 'Presentation' },
+    { value: '3:4', label: 'Classic Portrait', detail: 'Poster layout' },
+    { value: '9:4', label: 'Banner', detail: 'Wide strip' }
+  ];
+  const activeAspectRatioPreset = aspectRatioPresets.find(preset => preset.value === aspectRatio);
   const parsedAspectRatio = (() => {
     const [width, height] = aspectRatio.split(':').map(Number);
     if (!width || !height) return 16 / 9;
@@ -646,16 +655,21 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gray-100 transition-colors dark:bg-black">
       <div className="absolute left-3 top-3 z-50 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/85">
-        <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Frame</label>
+        <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Frame preset</label>
         <select
           value={aspectRatio}
           onChange={(e) => onAspectRatioChange(e.target.value)}
           className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
         >
           {aspectRatioPresets.map(preset => (
-            <option key={preset} value={preset}>{preset}</option>
+            <option key={preset.value} value={preset.value}>{preset.label} ({preset.value})</option>
           ))}
         </select>
+        {activeAspectRatioPreset && (
+          <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+            {activeAspectRatioPreset.detail}
+          </span>
+        )}
 
         <label className="ml-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">Media Zoom</label>
         <div className="flex items-center gap-2">
