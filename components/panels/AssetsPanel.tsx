@@ -113,17 +113,13 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   };
 
   const getBlockedPermissionMessage = (type: ElementType.VIDEO | ElementType.AUDIO, mode: 'camera' | 'screen') => {
-    if (!window.isSecureContext) {
-      return 'Browser recording permissions only work on HTTPS or localhost. Open this app in a secure context and try again.';
-    }
-
     if (mode === 'screen') {
-      return 'Screen recording needs a browser permission prompt. If no prompt appeared, check that screen capture is allowed for this site and browser.';
+      return 'Screen sharing is not available right now. Please allow it and try again.';
     }
 
     return type === ElementType.AUDIO
-      ? 'Microphone access is blocked for this site, so the browser will not ask again. Re-enable microphone access in the browser site settings and retry.'
-      : 'Camera or microphone access is blocked for this site, so the browser will not ask again. Re-enable both in the browser site settings and retry.';
+      ? 'Microphone access is blocked. Please allow it and try again.'
+      : 'Camera or microphone access is blocked. Please allow it and try again.';
   };
 
   const ensurePermissionsReady = async (
@@ -134,7 +130,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
       setErrorModal({
         isOpen: true,
         title: 'Secure Context Required',
-        message: 'Browser recording permissions only work on HTTPS or localhost. Open this app in a secure context and try again.'
+        message: 'Recording is not available right now in this browser tab.'
       });
       return false;
     }
@@ -412,9 +408,9 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
       clearRecordingPreview();
       const errorMessage =
         err instanceof Error && err.message === 'MediaDevicesUnavailable'
-          ? 'This browser does not expose camera or microphone access in the current context. Use HTTPS or localhost.'
+          ? 'Camera or microphone access is not available right now.'
           : err instanceof Error && err.message === 'MediaRecorderUnavailable'
-            ? 'This browser can request media access, but it cannot record it here.'
+            ? 'Recording is not supported in this browser.'
             : getRecordingErrorMessage(err, mode, type);
       setErrorModal({ isOpen: true, title: 'Recording Error', message: errorMessage });
       setIsRecording(false);
@@ -456,7 +452,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
       stopPhotoCapture();
       const errorMessage =
         err instanceof Error && err.message === 'MediaDevicesUnavailable'
-          ? 'This browser does not expose camera access in the current context. Use HTTPS or localhost.'
+          ? 'Camera access is not available right now.'
           : 'Could not access your camera for photo capture. Please check your browser permissions.';
       setErrorModal({ isOpen: true, title: 'Photo Capture Error', message: errorMessage });
     }
@@ -672,9 +668,6 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
                   <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Photo</span>
                 </button>
               </div>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                If the browser does not show a permission prompt, check whether this site is running on HTTPS or localhost and whether mic or camera access was previously blocked.
-              </p>
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
