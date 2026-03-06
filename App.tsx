@@ -697,6 +697,23 @@ function App() {
     return Promise.resolve(null);
   };
 
+  const loadMediaDuration = (src: string, type: ElementType): Promise<number | null> => {
+    if (type !== ElementType.AUDIO && type !== ElementType.VIDEO) {
+      return Promise.resolve(null);
+    }
+
+    return new Promise(resolve => {
+      const media = document.createElement(type === ElementType.AUDIO ? 'audio' : 'video');
+      media.preload = 'metadata';
+      media.onloadedmetadata = () => {
+        const duration = Number.isFinite(media.duration) ? media.duration : null;
+        resolve(duration && duration > 0 ? duration : null);
+      };
+      media.onerror = () => resolve(null);
+      media.src = src;
+    });
+  };
+
   const handleAddAssetToTrack = async (assetId: string, trackId: number, startTime: number) => {
     const asset = await getAssetById(assetId);
     if (asset) {
@@ -827,6 +844,13 @@ function App() {
       }
     }
 
+    if ((type === ElementType.VIDEO || type === ElementType.AUDIO) && customProps?.src) {
+      const mediaDuration = await loadMediaDuration(customProps.src, type);
+      if (mediaDuration) {
+        duration = mediaDuration;
+      }
+    }
+
     const newElement: EditorElement = {
       id,
       type,
@@ -848,6 +872,7 @@ function App() {
 
     setProject(prev => ({
       ...prev,
+      duration: Math.max(prev.duration, newElement.startTime + newElement.duration),
       elements: [...prev.elements, newElement],
       selectedElementId: id
     }));
