@@ -99,6 +99,75 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
       : 'Could not access your camera or microphone. Please check your browser permissions.';
   };
 
+  const getPermissionState = async (name: 'microphone' | 'camera') => {
+    if (!('permissions' in navigator) || !navigator.permissions?.query) {
+      return 'unknown';
+    }
+
+    try {
+      const status = await navigator.permissions.query({ name } as PermissionDescriptor);
+      return status.state;
+    } catch {
+      return 'unknown';
+    }
+  };
+
+  const getBlockedPermissionMessage = (type: ElementType.VIDEO | ElementType.AUDIO, mode: 'camera' | 'screen') => {
+    if (!window.isSecureContext) {
+      return 'Browser recording permissions only work on HTTPS or localhost. Open this app in a secure context and try again.';
+    }
+
+    if (mode === 'screen') {
+      return 'Screen recording needs a browser permission prompt. If no prompt appeared, check that screen capture is allowed for this site and browser.';
+    }
+
+    return type === ElementType.AUDIO
+      ? 'Microphone access is blocked for this site, so the browser will not ask again. Re-enable microphone access in the browser site settings and retry.'
+      : 'Camera or microphone access is blocked for this site, so the browser will not ask again. Re-enable both in the browser site settings and retry.';
+  };
+
+  const ensurePermissionsReady = async (
+    type: ElementType.VIDEO | ElementType.AUDIO,
+    mode: 'camera' | 'screen'
+  ) => {
+    if (!window.isSecureContext) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Secure Context Required',
+        message: 'Browser recording permissions only work on HTTPS or localhost. Open this app in a secure context and try again.'
+      });
+      return false;
+    }
+
+    if (mode === 'screen') {
+      return true;
+    }
+
+    const microphoneState = await getPermissionState('microphone');
+    if (microphoneState === 'denied') {
+      setErrorModal({
+        isOpen: true,
+        title: 'Microphone Blocked',
+        message: getBlockedPermissionMessage(type, mode)
+      });
+      return false;
+    }
+
+    if (type === ElementType.VIDEO) {
+      const cameraState = await getPermissionState('camera');
+      if (cameraState === 'denied') {
+        setErrorModal({
+          isOpen: true,
+          title: 'Camera Blocked',
+          message: getBlockedPermissionMessage(type, mode)
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const refreshLibrary = async () => {
     const assets = await getAssets();
     setLibraryAssets(assets);
@@ -197,6 +266,11 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
 
       if (typeof MediaRecorder === 'undefined') {
         throw new Error('MediaRecorderUnavailable');
+      }
+
+      const permissionsReady = await ensurePermissionsReady(type, mode);
+      if (!permissionsReady) {
+        return;
       }
 
       setRecordingType(type);
@@ -598,6 +672,9 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
                   <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Photo</span>
                 </button>
               </div>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                If the browser does not show a permission prompt, check whether this site is running on HTTPS or localhost and whether mic or camera access was previously blocked.
+              </p>
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
