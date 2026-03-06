@@ -53,6 +53,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       (element.type === ElementType.VIDEO || element.type === ElementType.IMAGE)
   );
   const selectedMediaZoom = selectedMediaElement?.props.mediaZoom ?? 1;
+  const [showSafeMargins, setShowSafeMargins] = useState(false);
+  const [showCenterGuide, setShowCenterGuide] = useState(false);
 
   const getMediaObjectFit = (fitMode?: EditorElement['props']['mediaFitMode']) => {
     switch (fitMode) {
@@ -679,6 +681,46 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     );
   };
 
+  const renderMonitorGuides = () => {
+    if (!showSafeMargins && !showCenterGuide) return null;
+
+    return (
+      <div className="pointer-events-none absolute inset-0 z-40">
+        {showSafeMargins && (
+          <>
+            <div
+              className="absolute border border-amber-400/90"
+              style={{
+                left: '10%',
+                top: '10%',
+                width: '80%',
+                height: '80%'
+              }}
+            />
+            <div
+              className="absolute border border-cyan-400/90"
+              style={{
+                left: '20%',
+                top: '20%',
+                width: '60%',
+                height: '60%'
+              }}
+            />
+            <div className="absolute left-3 bottom-3 rounded bg-black/60 px-2 py-1 text-[10px] font-semibold text-white">
+              Safe margins
+            </div>
+          </>
+        )}
+        {showCenterGuide && (
+          <>
+            <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-fuchsia-400/80" />
+            <div className="absolute top-1/2 left-0 right-0 h-px -translate-y-1/2 bg-fuchsia-400/80" />
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gray-100 transition-colors dark:bg-black">
       <div className="absolute left-3 top-3 z-50 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/85">
@@ -718,6 +760,18 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
             +
           </button>
         </div>
+        <button
+          onClick={() => setShowSafeMargins(prev => !prev)}
+          className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${showSafeMargins ? 'border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
+        >
+          Safe
+        </button>
+        <button
+          onClick={() => setShowCenterGuide(prev => !prev)}
+          className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${showCenterGuide ? 'border-fuchsia-300 bg-fuchsia-100 text-fuchsia-800 dark:border-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
+        >
+          Center
+        </button>
       </div>
 
       <div
@@ -730,6 +784,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         }}
         onClick={() => onSelectElement(null)}
       >
+        {renderMonitorGuides()}
+
         {elements.filter(e => e.type === ElementType.AUDIO && e.props.src).map(el => (
           <audio key={el.id} data-element-id={el.id} src={el.props.src} />
         ))}
