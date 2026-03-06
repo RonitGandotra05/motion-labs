@@ -55,6 +55,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   const selectedMediaZoom = selectedMediaElement?.props.mediaZoom ?? 1;
   const [showSafeMargins, setShowSafeMargins] = useState(false);
   const [showCenterGuide, setShowCenterGuide] = useState(false);
+  const [monitorZoom, setMonitorZoom] = useState<'fit' | 50 | 100 | 200>('fit');
 
   const getMediaObjectFit = (fitMode?: EditorElement['props']['mediaFitMode']) => {
     switch (fitMode) {
@@ -64,6 +65,19 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         return 'fill';
       default:
         return 'contain';
+    }
+  };
+
+  const getMonitorScale = () => {
+    switch (monitorZoom) {
+      case 50:
+        return 0.5;
+      case 100:
+        return 1;
+      case 200:
+        return 2;
+      default:
+        return 0.8;
     }
   };
 
@@ -772,26 +786,43 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         >
           Center
         </button>
+        <div className="ml-1 flex items-center gap-1">
+          {(['fit', 50, 100, 200] as const).map(level => (
+            <button
+              key={level}
+              onClick={() => setMonitorZoom(level)}
+              className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${monitorZoom === level ? 'border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
+            >
+              {level === 'fit' ? 'Fit' : `${level}%`}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div
-        ref={containerRef}
-        className="relative shadow-2xl bg-white dark:bg-gray-900 overflow-hidden transition-colors group"
-        style={{
-          width: '80%',
-          aspectRatio: `${parsedAspectRatio}`,
-          maxHeight: '80%'
-        }}
-        onClick={() => onSelectElement(null)}
+        className="flex h-full w-full items-center justify-center overflow-auto p-6"
       >
-        {renderMonitorGuides()}
+        <div
+          ref={containerRef}
+          className="relative shadow-2xl bg-white dark:bg-gray-900 overflow-hidden transition-colors group"
+          style={{
+            width: '80%',
+            aspectRatio: `${parsedAspectRatio}`,
+            maxHeight: '80%',
+            transform: `scale(${getMonitorScale()})`,
+            transformOrigin: 'center center'
+          }}
+          onClick={() => onSelectElement(null)}
+        >
+          {renderMonitorGuides()}
 
-        {elements.filter(e => e.type === ElementType.AUDIO && e.props.src).map(el => (
-          <audio key={el.id} data-element-id={el.id} src={el.props.src} />
-        ))}
+          {elements.filter(e => e.type === ElementType.AUDIO && e.props.src).map(el => (
+            <audio key={el.id} data-element-id={el.id} src={el.props.src} />
+          ))}
 
-        {/* Sort by zIndex for proper layering */}
-        {[...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map(renderVisualElement)}
+          {/* Sort by zIndex for proper layering */}
+          {[...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map(renderVisualElement)}
+        </div>
       </div>
 
       {/* Transport Controls */}
