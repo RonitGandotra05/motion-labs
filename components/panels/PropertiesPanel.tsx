@@ -7,9 +7,10 @@ interface PropertiesPanelProps {
     onDelete: (id: string) => void;
     onSplitAudio?: (id: string) => void;
     panelWidth?: number;
+    frameAspectRatio?: string;
 }
 
-const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, onDelete, onSplitAudio, panelWidth }) => {
+const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, onDelete, onSplitAudio, panelWidth, frameAspectRatio = '16:9' }) => {
     if (!element) {
         return (
             <div className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 p-4 text-gray-500 text-sm flex flex-col items-center justify-center h-full transition-colors" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
@@ -32,6 +33,66 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
 
         const nextHeight = element.width / sourceAspectRatio;
         onUpdate(element.id, { height: nextHeight });
+    };
+
+    const parseAspectRatio = (ratio: string) => {
+        const [width, height] = ratio.split(':').map(Number);
+        if (!width || !height) return 16 / 9;
+        return width / height;
+    };
+
+    const getFittedLayout = (sourceAspectRatio: number, targetAspectRatio: number) => {
+        if (sourceAspectRatio >= targetAspectRatio) {
+            const height = (targetAspectRatio / sourceAspectRatio) * 100;
+            return {
+                width: 100,
+                height,
+                x: 0,
+                y: (100 - height) / 2
+            };
+        }
+
+        const width = (sourceAspectRatio / targetAspectRatio) * 100;
+        return {
+            width,
+            height: 100,
+            x: (100 - width) / 2,
+            y: 0
+        };
+    };
+
+    const applyMediaFitMode = (mode: NonNullable<EditorElement['props']['mediaFitMode']>) => {
+        const sourceAspectRatio = element.props.sourceAspectRatio;
+        const props = {
+            ...element.props,
+            mediaFitMode: mode,
+            mediaZoom: mode === 'set-to-frame' ? 1 : element.props.mediaZoom ?? 1
+        };
+
+        if (!sourceAspectRatio) {
+            onUpdate(element.id, { props });
+            return;
+        }
+
+        if (mode === 'fill' || mode === 'stretch') {
+            onUpdate(element.id, {
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 100,
+                props
+            });
+            return;
+        }
+
+        const layout = getFittedLayout(sourceAspectRatio, parseAspectRatio(frameAspectRatio));
+        onUpdate(element.id, {
+            x: layout.x,
+            y: layout.y,
+            width: layout.width,
+            height: layout.height,
+            props
+        });
     };
 
     const isMedia = element.type === ElementType.VIDEO || element.type === ElementType.AUDIO;
@@ -377,13 +438,45 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         </div>
 
                         {/* Fit to Frame */}
-                        <button
-                            onClick={() => onUpdate(element.id, { x: 0, y: 0, width: 100, height: 100 })}
-                            className="w-full py-1.5 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900 hover:bg-green-200 dark:hover:bg-green-900 rounded text-xs transition flex items-center justify-center space-x-1"
-                        >
-                            <span>⛶</span>
-                            <span>Fit to Frame (100%)</span>
-                        </button>
+                        {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) ? (
+                            <div className="space-y-2">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">Frame Fit</span>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => applyMediaFitMode('fit')}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode !== 'fill' && element.props.mediaFitMode !== 'stretch' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                    >
+                                        Fit
+                                    </button>
+                                    <button
+                                        onClick={() => applyMediaFitMode('fill')}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'fill' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                    >
+                                        Fill
+                                    </button>
+                                    <button
+                                        onClick={() => applyMediaFitMode('stretch')}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'stretch' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                    >
+                                        Stretch
+                                    </button>
+                                    <button
+                                        onClick={() => applyMediaFitMode('set-to-frame')}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'set-to-frame' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                    >
+                                        Set to Frame
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => onUpdate(element.id, { x: 0, y: 0, width: 100, height: 100 })}
+                                className="w-full py-1.5 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900 hover:bg-green-200 dark:hover:bg-green-900 rounded text-xs transition flex items-center justify-center space-x-1"
+                            >
+                                <span>⛶</span>
+                                <span>Fit to Frame (100%)</span>
+                            </button>
+                        )}
 
                         {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) && element.props.sourceAspectRatio && (
                             <button

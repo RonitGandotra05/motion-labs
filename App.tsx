@@ -72,6 +72,29 @@ function App() {
     };
   };
 
+  const getMediaFrameLayout = (
+    sourceAspectRatio: number,
+    frameAspectRatio: number,
+    fitMode: ElementProps['mediaFitMode'] = 'fit'
+  ) => {
+    if (fitMode === 'fill' || fitMode === 'stretch') {
+      return {
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0
+      };
+    }
+
+    const fitted = fitMediaToFrame(sourceAspectRatio, frameAspectRatio);
+    return {
+      width: fitted.width,
+      height: fitted.height,
+      x: (100 - fitted.width) / 2,
+      y: (100 - fitted.height) / 2
+    };
+  };
+
   const applyPreviewAspectRatio = useCallback((ratio: string) => {
     const frameAspectRatio = parseAspectRatio(ratio);
     setPreviewAspectRatio(ratio);
@@ -84,14 +107,17 @@ function App() {
         ) {
           return el;
         }
-
-        const fitted = fitMediaToFrame(el.props.sourceAspectRatio, frameAspectRatio);
+        const layout = getMediaFrameLayout(
+          el.props.sourceAspectRatio,
+          frameAspectRatio,
+          el.props.mediaFitMode
+        );
         return {
           ...el,
-          x: (100 - fitted.width) / 2,
-          y: (100 - fitted.height) / 2,
-          width: fitted.width,
-          height: fitted.height
+          x: layout.x,
+          y: layout.y,
+          width: layout.width,
+          height: layout.height
         };
       })
     }));
@@ -706,7 +732,7 @@ function App() {
         break;
       case ElementType.VIDEO:
         name = customProps?.name || "Video Clip";
-        defaultProps = { src: customProps?.src, volume: 1, isMuted: false };
+        defaultProps = { src: customProps?.src, volume: 1, isMuted: false, mediaFitMode: 'fit' };
         width = 100; height = 100;
         duration = 10;
         break;
@@ -717,7 +743,7 @@ function App() {
         break;
       case ElementType.IMAGE:
         name = customProps?.name || "Image";
-        defaultProps = { src: customProps?.src };
+        defaultProps = { src: customProps?.src, mediaFitMode: 'fit' };
         width = 100; height = 100; // Full size by default
         break;
       case ElementType.ADJUSTMENT:
@@ -783,9 +809,13 @@ function App() {
       const dimensions = await loadMediaDimensions(customProps.src, type);
       if (dimensions?.width && dimensions?.height) {
         const sourceAspectRatio = dimensions.width / dimensions.height;
-        const fitted = fitMediaToFrame(sourceAspectRatio, parseAspectRatio(previewAspectRatio));
-        width = fitted.width;
-        height = fitted.height;
+        const layout = getMediaFrameLayout(
+          sourceAspectRatio,
+          parseAspectRatio(previewAspectRatio),
+          defaultProps.mediaFitMode
+        );
+        width = layout.width;
+        height = layout.height;
 
         defaultProps = {
           ...defaultProps,
@@ -1511,6 +1541,7 @@ function App() {
                       onUpdate={handleUpdateElement}
                       onDelete={handleDeleteElement}
                       onSplitAudio={handleSplitAudio}
+                      frameAspectRatio={previewAspectRatio}
                     />
                   ) : (
                     <ColorPanel
@@ -1631,6 +1662,7 @@ function App() {
                         onUpdate={handleUpdateElement}
                         onDelete={handleDeleteElement}
                         onSplitAudio={handleSplitAudio}
+                        frameAspectRatio={previewAspectRatio}
                       />
                     ) : (
                       <ColorPanel

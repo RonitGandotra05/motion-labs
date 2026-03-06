@@ -54,6 +54,17 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   );
   const selectedMediaZoom = selectedMediaElement?.props.mediaZoom ?? 1;
 
+  const getMediaObjectFit = (fitMode?: EditorElement['props']['mediaFitMode']) => {
+    switch (fitMode) {
+      case 'fill':
+        return 'cover';
+      case 'stretch':
+        return 'fill';
+      default:
+        return 'contain';
+    }
+  };
+
   // Dragging State
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -576,6 +587,26 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       mixBlendMode: el.props.blendMode as React.CSSProperties['mixBlendMode'] || undefined,
     };
 
+    const mediaViewportStyle: React.CSSProperties = {
+      width: '100%',
+      height: '100%',
+      overflow: 'hidden',
+      borderRadius: contentStyle.borderRadius,
+      opacity: contentStyle.opacity,
+      filter: contentStyle.filter,
+      mixBlendMode: contentStyle.mixBlendMode,
+      clipPath: `inset(${el.props.cropTop ?? 0}% ${el.props.cropRight ?? 0}% ${el.props.cropBottom ?? 0}% ${el.props.cropLeft ?? 0}%)`
+    };
+
+    const mediaStyle: React.CSSProperties = {
+      width: '100%',
+      height: '100%',
+      objectFit: getMediaObjectFit(el.props.mediaFitMode),
+      transform: `scale(${el.props.mediaZoom ?? 1})`,
+      transformOrigin: 'center center',
+      pointerEvents: 'none'
+    };
+
     // AI Generated Custom HTML
     // We scope CSS by replacing .root with a unique ID class
     const scopedCss = el.type === ElementType.AI_GENERATED && el.props.customCss
@@ -604,28 +635,24 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       <div key={el.id} style={style} onMouseDown={(e) => handleElementMouseDown(e, el)} onTouchStart={(e) => handleElementMouseDown(e, el)}>
 
         {el.type === ElementType.VIDEO && el.props.src && (
-          <video
-            data-element-id={el.id}
-            src={el.props.src}
-            className="w-full h-full object-contain pointer-events-none"
-            style={{
-              borderRadius: contentStyle.borderRadius,
-              transform: `scale(${el.props.mediaZoom ?? 1})`,
-              transformOrigin: 'center center'
-            }}
-          />
+          <div style={mediaViewportStyle}>
+            <video
+              data-element-id={el.id}
+              src={el.props.src}
+              className="w-full h-full"
+              style={mediaStyle}
+            />
+          </div>
         )}
 
         {el.type === ElementType.IMAGE && el.props.src && (
-          <img
-            src={el.props.src}
-            className="w-full h-full object-contain pointer-events-none"
-            style={{
-              borderRadius: contentStyle.borderRadius,
-              transform: `scale(${el.props.mediaZoom ?? 1})`,
-              transformOrigin: 'center center'
-            }}
-          />
+          <div style={mediaViewportStyle}>
+            <img
+              src={el.props.src}
+              className="w-full h-full"
+              style={mediaStyle}
+            />
+          </div>
         )}
 
         {(el.type === ElementType.TEXT || el.type === ElementType.SHAPE) && (
