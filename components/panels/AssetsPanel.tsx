@@ -38,6 +38,61 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
     refreshLibrary();
   }, []);
 
+  const clearRecordingPreview = () => {
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.pause();
+      videoPreviewRef.current.srcObject = null;
+    }
+  };
+
+  const getRecorderMimeType = (type: ElementType.VIDEO | ElementType.AUDIO) => {
+    if (typeof MediaRecorder === 'undefined') {
+      return '';
+    }
+
+    const preferredTypes = type === ElementType.AUDIO
+      ? ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+      : ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+
+    return preferredTypes.find(mimeType => MediaRecorder.isTypeSupported(mimeType)) || '';
+  };
+
+  const getRecordingErrorMessage = (
+    error: unknown,
+    mode: 'camera' | 'screen',
+    type: ElementType.VIDEO | ElementType.AUDIO
+  ) => {
+    if (error instanceof DOMException) {
+      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+        if (mode === 'screen') {
+          return 'Screen sharing was blocked. Allow screen access in your browser and try again.';
+        }
+
+        return type === ElementType.AUDIO
+          ? 'Microphone access was blocked. Allow microphone access in your browser and try again.'
+          : 'Camera or microphone access was blocked. Allow both in your browser and try again.';
+      }
+
+      if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        return type === ElementType.AUDIO
+          ? 'No microphone was found on this device.'
+          : 'No camera or microphone was found on this device.';
+      }
+
+      if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        return 'The selected camera, microphone, or screen is busy in another app. Close the other app and retry.';
+      }
+
+      if (error.name === 'NotSupportedError') {
+        return 'This browser cannot record with the current media settings. Try Chrome or Edge on desktop.';
+      }
+    }
+
+    return mode === 'screen'
+      ? 'Could not share your screen. Please check your browser permissions or try a different browser.'
+      : 'Could not access your camera or microphone. Please check your browser permissions.';
+  };
+
   const refreshLibrary = async () => {
     const assets = await getAssets();
     setLibraryAssets(assets);
@@ -102,6 +157,14 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   // -- Recorder Logic --
   const startRecording = async (type: ElementType.VIDEO | ElementType.AUDIO, mode: 'camera' | 'screen' = 'camera') => {
     try {
+      if (!navigator.mediaDevices) {
+        throw new Error('MediaDevicesUnavailable');
+      }
+
+      if (typeof MediaRecorder === 'undefined') {
+        throw new Error('MediaRecorderUnavailable');
+      }
+
       setRecordingType(type);
       setRecordingMode(mode);
 
@@ -178,7 +241,10 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
         }
       }
 
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const mimeType = getRecorderMimeType(type);
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
 
       recorder.ondataavailable = (e) => {
@@ -186,9 +252,16 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
       };
 
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: type === ElementType.VIDEO ? 'video/webm' : 'audio/webm' });
+        const blobType = recorder.mimeType || mimeType || (type === ElementType.VIDEO ? 'video/webm' : 'audio/webm');
+        const blob = new Blob(chunks, { type: blobType });
         // Stop stream tracks
         stream.getTracks().forEach(track => track.stop());
+        previewStream.getTracks().forEach(track => {
+          if (!stream.getTracks().includes(track)) {
+            track.stop();
+          }
+        });
+        clearRecordingPreview();
 
         // Save to DB
         const modeLabel = mode === 'screen' ? 'Screen' : 'Camera';
@@ -228,10 +301,16 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
 
     } catch (err) {
       console.error("Error accessing media devices:", err);
-      const errorMessage = mode === 'screen'
-        ? 'Could not share your screen. Please check your browser permissions or try a different browser.'
-        : 'Could not access your camera or microphone. Please check your browser permissions.';
+      clearRecordingPreview();
+      const errorMessage =
+        err instanceof Error && err.message === 'MediaDevicesUnavailable'
+          ? 'This browser does not expose camera or microphone access in the current context. Use HTTPS or localhost.'
+          : err instanceof Error && err.message === 'MediaRecorderUnavailable'
+            ? 'This browser can request media access, but it cannot record it here.'
+            : getRecordingErrorMessage(err, mode, type);
       setErrorModal({ isOpen: true, title: 'Recording Error', message: errorMessage });
+      setIsRecording(false);
+      setRecordingType(null);
       setRecordingMode(null);
     }
   };
