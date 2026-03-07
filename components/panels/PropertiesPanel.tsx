@@ -13,8 +13,8 @@ interface PropertiesPanelProps {
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, onDelete, onSplitAudio, panelWidth, frameAspectRatio = '16:9' }) => {
     if (!element) {
         return (
-            <div className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 p-4 text-gray-500 text-sm flex flex-col items-center justify-center h-full transition-colors" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
-                <span>No element selected</span>
+            <div className="bg-pp-darkest border-l border-black/50 p-4 text-pp-text-dim text-[11px] flex flex-col items-center justify-center h-full transition-colors font-pp-ui" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
+                <span>No selection</span>
             </div>
         );
     }
@@ -98,16 +98,26 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
     const isMedia = element.type === ElementType.VIDEO || element.type === ElementType.AUDIO;
 
     return (
-        <div className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-y-auto transition-colors" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
-            <div className="p-4 space-y-6">
+        <div className="bg-pp-darkest border-l border-black/50 flex flex-col h-full overflow-y-auto custom-scrollbar transition-colors font-pp-ui select-none" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
+            {/* Header Tabs Area */}
+            <div className="flex bg-pp-dark border-b border-black/30 w-full overflow-hidden flex-shrink-0">
+                <div className="pp-panel-tab active px-3 py-1 flex-1">
+                    Effect Controls
+                </div>
+            </div>
+
+            <div className="p-3 space-y-4 pb-12">
                 {/* Basic Info */}
-                <div className="space-y-2">
-                    <label className="text-xs text-gray-500 uppercase font-bold">Layer Name</label>
+                <div className="space-y-1">
+                    <label className="text-[11px] text-pp-text font-semibold flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-sm bg-blue-500"></span>
+                        {element.name}
+                    </label>
                     <input
                         type="text"
                         value={element.name}
                         onChange={(e) => onUpdate(element.id, { name: e.target.value })}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-pp-dark border border-black/40 rounded-sm px-1.5 py-0.5 text-[11px] text-pp-text focus:outline-none focus:border-blue-500 transition-colors"
                     />
                 </div>
 
@@ -129,7 +139,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     backgroundSize: color === 'none' ? '6px 6px' : undefined,
                                     backgroundPosition: color === 'none' ? '0 0, 0 3px, 3px -3px, -3px 0px' : undefined
                                 }}
-                                title={color === 'none' ? 'No color' : color.charAt(0).toUpperCase() + color.slice(1)}
+                                data-tip={color === 'none' ? 'No color' : color.charAt(0).toUpperCase() + color.slice(1)}
                             />
                         ))}
                     </div>
@@ -137,8 +147,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
 
                 {/* Layer Order Controls */}
                 {element.type !== ElementType.AUDIO && (
-                    <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-800">
-                        <label className="text-xs text-gray-500 uppercase font-bold">Layer Order</label>
+                    <div className="space-y-2 pt-3 border-t border-black/30">
+                        <label className="text-[11px] text-pp-text font-semibold flex items-center gap-1">
+                            ⬇ Layer Order
+                        </label>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => onUpdate(element.id, { zIndex: (element.zIndex ?? 0) + 1 })}
@@ -179,7 +191,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         duration: element.transitionIn?.duration ?? 0.5
                                     }
                                 })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                             >
                                 <option value="none">None</option>
                                 <option value="fade">Fade In</option>
@@ -217,7 +229,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         duration: element.transitionOut?.duration ?? 0.5
                                     }
                                 })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                             >
                                 <option value="none">None</option>
                                 <option value="fade">Fade Out</option>
@@ -255,9 +267,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 type="checkbox"
                                 checked={element.props.isMuted || false}
                                 onChange={(e) => handleChange('isMuted', e.target.checked)}
-                                className="rounded bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                                className="rounded bg-pp-dark border-black/40 text-blue-500 focus:ring-blue-500"
                             />
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Mute Audio</span>
+                            <span className="text-[11px] text-pp-text">Mute Audio</span>
                         </div>
                         {!element.props.isMuted && (
                             <div>
@@ -294,7 +306,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         {(element.type === ElementType.VIDEO || element.type === ElementType.AUDIO) && (
                             <button
                                 onClick={() => handleChange('isReversed', !element.props.isReversed)}
-                                className={`w-full py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.props.isReversed ? 'bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.isReversed ? 'bg-pp-accent text-white border-blue-800' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
                             >
                                 <span>⏪</span>
                                 <span>Reverse Playback</span>
@@ -331,7 +343,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         value={element.props.duckingThreshold ?? 0.2}
                                         onChange={(e) => handleChange('duckingThreshold', Number(e.target.value))}
                                         className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-1"
-                                        title="Volume level of background tracks when this track is playing"
+                                        data-tip="Volume level of background tracks when this track is playing"
                                     />
                                     <p className="text-[9px] text-gray-400 mt-0.5">Background volume during this clip</p>
                                 </div>
@@ -361,7 +373,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         {/* Preserve Pitch Toggle */}
                         <button
                             onClick={() => handleChange('preservePitch', !element.props.preservePitch)}
-                            className={`w-full py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.props.preservePitch ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.preservePitch ? 'bg-pp-accent text-white border-blue-800' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
                         >
                             <span>🎵</span>
                             <span>Preserve Pitch</span>
@@ -394,52 +406,55 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                     </div>
                 )}
 
-                {/* Geometry (Visual Only) - Now enabled for VIDEO too */}
+                {/* Geometry (Visual Only) */}
                 {element.type !== ElementType.AUDIO && (
-                    <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-800">
-                        <label className="text-xs text-gray-500 uppercase font-bold">Transform</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">X (%)</span>
-                                <input type="number" value={Math.round(element.x)} onChange={(e) => handleGeometryChange('x', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
+                    <div className="space-y-2 pt-3 border-t border-black/30">
+                        <label className="flex items-center text-[11px] font-semibold text-pp-text uppercase">
+                            <span className="w-3 inline-block transition-transform transform rotate-90 opacity-60">▶</span>
+                            Motion
+                        </label>
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pl-3 border-l border-white/5 ml-1.5">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-pp-text-dim">Position X</span>
+                                <input type="number" value={Math.round(element.x)} onChange={(e) => handleGeometryChange('x', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
                             </div>
-                            <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">Y (%)</span>
-                                <input type="number" value={Math.round(element.y)} onChange={(e) => handleGeometryChange('y', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-pp-text-dim">Position Y</span>
+                                <input type="number" value={Math.round(element.y)} onChange={(e) => handleGeometryChange('y', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
                             </div>
-                            <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">W (%)</span>
-                                <input type="number" value={Math.round(element.width)} onChange={(e) => handleGeometryChange('width', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-pp-text-dim">Width (%)</span>
+                                <input type="number" value={Math.round(element.width)} onChange={(e) => handleGeometryChange('width', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
                             </div>
-                            <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">H (%)</span>
-                                <input type="number" value={Math.round(element.height)} onChange={(e) => handleGeometryChange('height', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-pp-text-dim">Height (%)</span>
+                                <input type="number" value={Math.round(element.height)} onChange={(e) => handleGeometryChange('height', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
                             </div>
-                            <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">Rotation (°)</span>
-                                <input type="number" value={Math.round(element.rotation)} onChange={(e) => handleGeometryChange('rotation', Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white" />
+                            <div className="flex justify-between items-center col-span-2">
+                                <span className="text-[10px] text-pp-text-dim">Rotation (°)</span>
+                                <input type="number" value={Math.round(element.rotation)} onChange={(e) => handleGeometryChange('rotation', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
                             </div>
                         </div>
 
                         {/* Position Presets */}
-                        <div className="pt-2">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Position Presets</span>
-                            <div className="grid grid-cols-3 gap-1 mt-1">
-                                <button onClick={() => onUpdate(element.id, { x: 0, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↖ Top-L</button>
-                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↑ Top</button>
-                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 0 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↗ Top-R</button>
-                                <button onClick={() => onUpdate(element.id, { x: 0, y: 50 - element.height / 2 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">← Left</button>
-                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 50 - element.height / 2 })} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded text-[10px] text-blue-600 dark:text-blue-400 font-medium">⊙ Center</button>
-                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 50 - element.height / 2 })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">→ Right</button>
-                                <button onClick={() => onUpdate(element.id, { x: 0, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↙ Bot-L</button>
-                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↓ Bottom</button>
-                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 100 - element.height })} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">↘ Bot-R</button>
+                        <div className="pt-2 pl-3 ml-1.5 border-l border-white/5">
+                            <span className="text-[10px] text-pp-text-dim block mb-1">Align & Distribute</span>
+                            <div className="grid grid-cols-3 gap-0.5">
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 0 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↖</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 0 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↑</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 0 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↗</button>
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 50 - element.height / 2 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">←</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 50 - element.height / 2 })} className="px-1 py-1 bg-blue-600 border border-blue-700 hover:bg-blue-500 rounded-sm text-[10px] text-white text-center leading-none">⊙</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 50 - element.height / 2 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">→</button>
+                                <button onClick={() => onUpdate(element.id, { x: 0, y: 100 - element.height })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↙</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 100 - element.height })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↓</button>
+                                <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 100 - element.height })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↘</button>
                             </div>
                         </div>
 
                         {/* Fit to Frame */}
                         {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) ? (
-                            <div className="space-y-2">
+                            <div className="space-y-2 pt-2 pl-3 ml-1.5 border-l border-white/5">
                                 <span className="text-xs text-gray-500 dark:text-gray-400">Frame Fit</span>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
@@ -643,7 +658,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             <select
                                 value={element.props.blendMode ?? 'normal'}
                                 onChange={(e) => handleChange('blendMode', e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                             >
                                 <option value="normal">Normal</option>
                                 <option value="multiply">Multiply</option>
@@ -903,12 +918,12 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         <label className="text-xs text-gray-500 uppercase font-bold">Appearance</label>
 
                         {(element.type === ElementType.TEXT || element.type === ElementType.AI_GENERATED) && (
-                            <div className="space-y-2">
-                                <span className="text-xs text-gray-500 dark:text-gray-400">Content</span>
+                            <div className="space-y-1">
+                                <span className="text-[10px] text-pp-text-dim">Content</span>
                                 <textarea
                                     value={element.props.text || ''}
                                     onChange={(e) => handleChange('text', e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm text-gray-900 dark:text-white h-20"
+                                    className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1.5 py-1 text-[11px] text-pp-text h-20 focus:outline-none focus:border-blue-500"
                                 />
                             </div>
                         )}
@@ -924,7 +939,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     <select
                                         value={element.props.fontFamily || 'Inter'}
                                         onChange={(e) => handleChange('fontFamily', e.target.value)}
-                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                        className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                                     >
                                         <option value="Inter">Inter</option>
                                         <option value="Roboto">Roboto</option>
@@ -953,7 +968,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     <select
                                         value={element.props.fontWeight || 400}
                                         onChange={(e) => handleChange('fontWeight', Number(e.target.value))}
-                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                        className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                                     >
                                         <option value={300}>Light (300)</option>
                                         <option value={400}>Regular (400)</option>
@@ -970,7 +985,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     <select
                                         value={element.props.textAnimation || 'none'}
                                         onChange={(e) => handleChange('textAnimation', e.target.value)}
-                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mt-1"
+                                        className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text mt-1"
                                     >
                                         <option value="none">None</option>
                                         <option value="typewriter">Typewriter</option>
@@ -1011,21 +1026,21 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 {/* Letter Spacing & Line Height */}
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">Letter Space</span>
+                                        <span className="text-[10px] text-pp-text-dim">Letter Space</span>
                                         <input
                                             type="number" step="0.5" min="-5" max="20"
                                             value={element.props.letterSpacing ?? 0}
                                             onChange={(e) => handleChange('letterSpacing', Number(e.target.value))}
-                                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white"
+                                            className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text"
                                         />
                                     </div>
                                     <div>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">Line Height</span>
+                                        <span className="text-[10px] text-pp-text-dim">Line Height</span>
                                         <input
                                             type="number" step="0.1" min="0.5" max="3"
                                             value={element.props.lineHeight ?? 1.2}
                                             onChange={(e) => handleChange('lineHeight', Number(e.target.value))}
-                                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white"
+                                            className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text"
                                         />
                                     </div>
                                 </div>
@@ -1098,12 +1113,12 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
 
                         <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">Radius</span>
+                                <span className="text-[10px] text-pp-text-dim">Radius</span>
                                 <input
                                     type="number"
                                     value={element.props.borderRadius || 0}
                                     onChange={(e) => handleChange('borderRadius', Number(e.target.value))}
-                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white"
+                                    className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text"
                                 />
                             </div>
                             <div>
@@ -1122,9 +1137,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                 <div className="pt-6 mt-auto">
                     <button
                         onClick={() => onDelete(element.id)}
-                        className="w-full py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 hover:bg-red-200 dark:hover:bg-red-900 rounded text-sm transition"
+                        className="w-full py-1.5 bg-red-900/30 text-red-500 border border-red-900/50 hover:bg-red-900/50 rounded-sm text-[11px] transition font-semibold"
                     >
-                        Delete Layer
+                        Delete Layer (Backspace)
                     </button>
                 </div>
 
