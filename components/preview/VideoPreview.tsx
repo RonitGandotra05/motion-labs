@@ -736,79 +736,19 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   };
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gray-100 transition-colors dark:bg-black">
-      <div className="absolute left-3 top-3 z-50 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/85">
-        <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Frame preset</label>
-        <select
-          value={aspectRatio}
-          onChange={(e) => onAspectRatioChange(e.target.value)}
-          className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-        >
-          {aspectRatioPresets.map(preset => (
-            <option key={preset.value} value={preset.value}>{preset.label} ({preset.value})</option>
-          ))}
-        </select>
-        {activeAspectRatioPreset && (
-          <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-            {activeAspectRatioPreset.detail}
-          </span>
-        )}
-
-        <label className="ml-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">Media Zoom</label>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => selectedMediaElement && onUpdateElement(selectedMediaElement.id, { props: { ...selectedMediaElement.props, mediaZoom: Math.max(0.5, selectedMediaZoom - 0.1) } })}
-            disabled={!selectedMediaElement}
-            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
-          >
-            -
-          </button>
-          <span className="min-w-14 text-center text-xs text-gray-700 dark:text-gray-200">
-            {selectedMediaElement ? `${Math.round(selectedMediaZoom * 100)}%` : 'Select'}
-          </span>
-          <button
-            onClick={() => selectedMediaElement && onUpdateElement(selectedMediaElement.id, { props: { ...selectedMediaElement.props, mediaZoom: Math.min(3, selectedMediaZoom + 0.1) } })}
-            disabled={!selectedMediaElement}
-            className="h-7 w-7 rounded border border-gray-200 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
-          >
-            +
-          </button>
-        </div>
-        <button
-          onClick={() => setShowSafeMargins(prev => !prev)}
-          className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${showSafeMargins ? 'border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
-        >
-          Safe
-        </button>
-        <button
-          onClick={() => setShowCenterGuide(prev => !prev)}
-          className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${showCenterGuide ? 'border-fuchsia-300 bg-fuchsia-100 text-fuchsia-800 dark:border-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
-        >
-          Center
-        </button>
-        <div className="ml-1 flex items-center gap-1">
-          {(['fit', 50, 100, 200] as const).map(level => (
-            <button
-              key={level}
-              onClick={() => setMonitorZoom(level)}
-              className={`rounded border px-2 py-1 text-[11px] font-semibold transition ${monitorZoom === level ? 'border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-200' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
-            >
-              {level === 'fit' ? 'Fit' : `${level}%`}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-pp-darkest transition-colors h-full w-full" style={{ zIndex: 1 }}>
+      {/* Video preview area */}
       <div
-        className="flex h-full w-full items-center justify-center overflow-auto p-6"
+        className="flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0"
       >
         <div
           ref={containerRef}
-          className="relative shadow-2xl bg-white dark:bg-gray-900 overflow-hidden transition-colors group"
+          className="relative bg-black overflow-hidden"
           style={{
             width: '80%',
             aspectRatio: `${parsedAspectRatio}`,
-            maxHeight: '80%',
+            maxHeight: '100%',
+            maxWidth: '100%',
             transform: `scale(${getMonitorScale()})`,
             transformOrigin: 'center center'
           }}
@@ -825,19 +765,68 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         </div>
       </div>
 
-      {/* Transport Controls */}
-      <div className="absolute bottom-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-full px-6 py-3 flex items-center space-x-6 z-50 shadow-lg border border-gray-200 dark:border-gray-700 transition-colors">
-        <button className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition" onClick={() => onTimeUpdate(0)}>
-          <span className="text-xs font-mono">|&lt;</span>
-        </button>
-        <button
-          onClick={togglePlay}
-          className="w-10 h-10 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black hover:bg-gray-700 dark:hover:bg-gray-200 transition"
-        >
-          {isPlaying ? <PauseIcon /> : <PlayIcon className="ml-1" />}
-        </button>
-        <div className="text-xs font-mono text-gray-700 dark:text-gray-300">
-          {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}
+      {/* Premiere Pro Program Monitor Toolbar - pinned at bottom */}
+      <div className="flex-shrink-0 h-[36px] bg-pp-dark w-full border-t border-black/30 flex items-center px-4 relative z-20">
+        {/* Left: Timecode and Fit */}
+        <div className="flex items-center space-x-4 flex-shrink-0">
+          <span className="pp-timecode text-pp-timecode text-[12px] font-mono">
+            {Math.floor(currentTime / 60).toString().padStart(2, '0')}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}:00:00
+          </span>
+
+          <select
+            value={aspectRatio}
+            onChange={(e) => onAspectRatioChange(e.target.value)}
+            className="bg-transparent border border-transparent hover:border-pp-border rounded px-1 py-0.5 text-[11px] text-pp-text-dim hover:text-pp-text outline-none cursor-pointer hidden md:block"
+            data-tip="Sequence Settings"
+          >
+            {aspectRatioPresets.map(preset => (
+              <option key={preset.value} value={preset.value} className="bg-pp-menu-bg text-pp-text">{preset.label} ({preset.value})</option>
+            ))}
+          </select>
+
+          <select
+            value={monitorZoom}
+            onChange={(e) => setMonitorZoom(e.target.value as any)}
+            className="bg-pp-dark border border-pp-border rounded px-2 py-0.5 text-[11px] text-pp-text outline-none cursor-pointer"
+          >
+            <option value="fit" className="bg-pp-menu-bg">Fit</option>
+            <option value="50" className="bg-pp-menu-bg">50%</option>
+            <option value="100" className="bg-pp-menu-bg">100%</option>
+            <option value="200" className="bg-pp-menu-bg">200%</option>
+          </select>
+        </div>
+
+        {/* Center: Transport Controls */}
+        <div className="flex items-center space-x-1 flex-1 justify-center">
+          <button className="pp-transport-btn" data-tip="Go to In"><span className="text-[10px]">⏮</span></button>
+          <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.max(0, currentTime - 0.1))} data-tip="Step Back 1 Frame"><span className="text-[10px]">◀</span></button>
+          <button
+            onClick={togglePlay}
+            className="pp-transport-btn w-8 h-8 mx-1"
+            data-tip={isPlaying ? "Stop" : "Play"}
+          >
+            {isPlaying ? <span className="text-[12px]">⏸</span> : <span className="text-[14px]">▶</span>}
+          </button>
+          <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.min(9999, currentTime + 0.1))} data-tip="Step Forward 1 Frame"><span className="text-[10px]">▶</span></button>
+          <button className="pp-transport-btn" data-tip="Go to Out"><span className="text-[10px]">⏭</span></button>
+        </div>
+
+        {/* Right: Tools & Overlays */}
+        <div className="flex items-center space-x-2 flex-shrink-0">
+          <button
+            onClick={() => setShowSafeMargins(prev => !prev)}
+            className={`pp-icon-btn w-6 h-6 border ${showSafeMargins ? 'border-pp-accent text-pp-accent bg-pp-light' : 'border-transparent text-pp-text-dim'}`}
+            data-tip="Safe Margins"
+          >
+            <span className="text-[10px]">☐</span>
+          </button>
+          <button
+            onClick={() => { }}
+            className="pp-icon-btn w-6 h-6 border border-transparent text-pp-text-dim"
+            data-tip="Button Editor"
+          >
+            <span className="text-[12px] font-bold">+</span>
+          </button>
         </div>
       </div>
     </div>

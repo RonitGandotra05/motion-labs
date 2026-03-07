@@ -8,6 +8,7 @@ import { ConfirmDialog, InputDialog } from '../ui/Modal';
 interface AssetsPanelProps {
   onAddElement: (type: ElementType, props?: any) => void;
   onUploadMedia: (file: File, type: ElementType) => void;
+  onPreviewClip?: (clip: { name: string; type: ElementType; src: string; assetId?: string }) => void;
   panelWidth?: number;
   onOpenSettings?: () => void;
 }
@@ -16,9 +17,10 @@ const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v', 'mpeg', 'mp
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga', 'flac', 'aiff', 'aif', 'weba', 'wma', 'alac', 'amr', 'opus', 'mid', 'midi', 'mp2', 'ac3'];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif', 'heic', 'heif', 'tif', 'tiff', 'ico', 'raw', 'dng'];
 
-const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onOpenSettings }) => {
+const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, panelWidth, onOpenSettings }) => {
   const [activeTab, setActiveTab] = useState<'library' | 'image'>('library');
   const [libraryAssets, setLibraryAssets] = useState<MediaAsset[]>([]);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Recorder State
   const [isRecording, setIsRecording] = useState(false);
@@ -197,13 +199,18 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
 
-    const files = Array.from(e.target.files);
-    for (const file of files) {
+    const fileList = Array.from(e.target.files) as File[];
+    setImportProgress({ current: 0, total: fileList.length });
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      setImportProgress({ current: i + 1, total: fileList.length });
       const assetType = getAssetTypeForFile(file);
       if (!assetType) continue;
       await saveAsset(file, assetType, file.name);
     }
 
+    setImportProgress(null);
     await refreshLibrary();
     e.target.value = '';
   };
@@ -211,6 +218,13 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
   const handleAddToTimeline = (asset: MediaAsset) => {
     const url = URL.createObjectURL(asset.blob);
     onAddElement(asset.type, { src: url, name: asset.name, assetId: asset.id });
+  };
+
+  const handlePreviewClip = (asset: MediaAsset) => {
+    if (onPreviewClip) {
+      const url = URL.createObjectURL(asset.blob);
+      onPreviewClip({ name: asset.name, type: asset.type, src: url, assetId: asset.id });
+    }
   };
 
   // OS File Drag & Drop
@@ -557,9 +571,11 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
     setIsGenerating(false);
   };
 
+  const [showRecordSection, setShowRecordSection] = useState(false);
+
   return (
     <div
-      className="relative flex h-full min-w-0 w-full flex-col overflow-x-hidden border-r border-gray-200 bg-white transition-colors dark:border-gray-800 dark:bg-gray-900"
+      className="relative flex h-full min-w-0 w-full flex-col overflow-x-hidden bg-pp-dark text-pp-text transition-colors"
       style={{
         width: panelWidth ? `${panelWidth}px` : '280px',
         maxWidth: '100%'
@@ -617,159 +633,208 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-800">
-        <button onClick={() => setActiveTab('library')} className={`flex-1 py-3 text-xs font-semibold transition-colors ${activeTab === 'library' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Library</button>
-        <button onClick={() => setActiveTab('image')} className={`flex-1 py-3 text-xs font-semibold transition-colors ${activeTab === 'image' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Image Gen</button>
+      {/* Internal Tabs - Premiere Pro style */}
+      <div className="flex bg-pp-dark border-b border-black/30 w-full overflow-hidden flex-shrink-0">
+        <button
+          onClick={() => setActiveTab('library')}
+          className={`px-3 py-1 text-[11px] font-medium transition-colors ${activeTab === 'library' ? 'bg-pp-light text-white' : 'text-pp-text hover:text-white hover:bg-pp-medium'}`}
+          data-tip="Project Assets & Media"
+        >
+          Assets
+        </button>
+        <button
+          onClick={() => setActiveTab('image')}
+          className={`px-3 py-1 text-[11px] font-medium transition-colors ${activeTab === 'image' ? 'bg-pp-light text-white' : 'text-pp-text hover:text-white hover:bg-pp-medium'}`}
+          data-tip="AI Generators"
+        >
+          Generators
+        </button>
       </div>
 
-      <div className="flex-1 space-y-6 overflow-x-hidden overflow-y-auto p-4 custom-scrollbar">
+      {/* Main Content Area */}
+      <div className="flex-1 w-full overflow-x-hidden overflow-y-auto custom-scrollbar flex flex-col">
 
         {activeTab === 'library' && (
-          <>
-            {/* Recording Actions */}
-            <div className="space-y-2">
-              <h3 className="text-[10px] text-gray-500 dark:text-gray-500 uppercase font-bold">Record</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => startRecording(ElementType.VIDEO, 'camera')}
-                  className="flex flex-col items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 rounded hover:bg-red-50 dark:hover:bg-red-900/20 group border border-transparent hover:border-red-500/30 transition"
-                >
-                  <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mb-1 group-hover:scale-110 transition">
-                    <CameraIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Camera</span>
-                </button>
-                <button
-                  onClick={() => startRecording(ElementType.VIDEO, 'screen')}
-                  className="flex flex-col items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 group border border-transparent hover:border-purple-500/30 transition"
-                >
-                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mb-1 group-hover:scale-110 transition">
-                    <MonitorIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Screen</span>
-                </button>
-                <button
-                  onClick={() => startRecording(ElementType.AUDIO, 'camera')}
-                  className="flex flex-col items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 group border border-transparent hover:border-blue-500/30 transition"
-                >
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-1 group-hover:scale-110 transition">
-                    <MusicIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Audio</span>
-                </button>
-                <button
-                  onClick={startPhotoCapture}
-                  className="flex flex-col items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20 group border border-transparent hover:border-emerald-500/30 transition"
-                >
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center mb-1 group-hover:scale-110 transition">
-                    <ImageIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">Photo</span>
-                </button>
-              </div>
-            </div>
+          <div className="flex flex-col flex-1">
 
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-              <h3 className="text-xs text-gray-500 dark:text-gray-500 uppercase font-bold mb-3 flex justify-between items-center">
-                Resource Manager
-                <label className="cursor-pointer text-blue-500 hover:text-blue-400 text-[10px] flex items-center bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
-                  <PlusIcon className="w-3 h-3 mr-1" /> Import
+            {/* ═══════════ SECTION 1: RESOURCE MANAGER ═══════════ */}
+            <div className="flex-1 flex flex-col">
+              {/* Resource Manager Header Bar */}
+              <div className="flex items-center justify-between px-3 py-[6px] bg-[#1e1e1e] border-b border-[#111] flex-shrink-0">
+                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Resource Manager</span>
+                <label className="cursor-pointer text-[#5b9bd5] hover:text-[#7cb8e8] text-[10px] flex items-center font-semibold" data-tip="Import media files">
+                  <PlusIcon className="w-3 h-3 mr-1" /> IMPORT
                   <input type="file" className="hidden" multiple onChange={handleFileUpload} />
                 </label>
-              </h3>
-              <p className="mb-3 text-[10px] text-gray-500 dark:text-gray-400">
-                Mixed imports supported across common audio, video, and photo formats, including MP4, MOV, MKV, MP3, WAV, FLAC, PNG, JPG, HEIC, TIFF and more.
-              </p>
+              </div>
 
+              {/* Media List / Drop Zone */}
               <div
-                className="min-h-[100px] space-y-2 rounded-lg border-2 border-dashed border-transparent transition-colors hover:border-blue-300 dark:hover:border-blue-700"
+                className="flex-1 min-h-[80px] flex flex-col"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               >
-                {libraryAssets.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-xs italic pointer-events-none">
-                    Library is empty. <br />Record, Import, or Drag & Drop media here.
+                {importProgress && (
+                  <div className="text-center py-4 text-pp-text-dim text-[10px] px-4">
+                    <div className="inline-block w-4 h-4 border-2 border-pp-accent border-t-transparent rounded-full animate-spin mb-2" />
+                    <p className="text-blue-400 font-semibold">Importing {importProgress.current}/{importProgress.total} files...</p>
                   </div>
                 )}
-                {libraryAssets.map(asset => (
+                {libraryAssets.length === 0 && !importProgress && (
+                  <div className="text-center py-6 text-pp-text-dim text-[10px] italic pointer-events-none px-4">
+                    <p className="mb-1 text-gray-500">No media imported yet.</p>
+                    <p className="text-gray-600">Drag & drop files here or click IMPORT above.</p>
+                    <p className="text-gray-600 mt-2" style={{ fontSize: '9px' }}>
+                      Supports MP4, MOV, MKV, MP3, WAV, FLAC, PNG, JPG, HEIC, TIFF and more.
+                    </p>
+                  </div>
+                )}
+                {libraryAssets.map((asset, index) => (
                   <div
                     key={asset.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, asset)}
-                    className="group flex items-center p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 hover:border-blue-500 transition-colors cursor-grab active:cursor-grabbing"
-                    onClick={() => handleAddToTimeline(asset)}
+                    className={`group flex items-center px-3 py-[3px] ${index % 2 === 0 ? 'bg-[#232323]' : 'bg-[#1e1e1e]'} hover:bg-[#2a3a4a] transition-colors cursor-grab active:cursor-grabbing border-l-[3px] ${asset.type === ElementType.VIDEO ? 'border-[#6b8aad]' : asset.type === ElementType.AUDIO ? 'border-[#4e9a4e]' : 'border-[#ad7b6b]'}`}
+                    onClick={() => handlePreviewClip(asset)}
+                    onDoubleClick={() => handleAddToTimeline(asset)}
+                    data-tip={`Click to preview "${asset.name}" • Double-click to add to timeline`}
                   >
-                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-900 rounded flex-shrink-0 flex items-center justify-center mr-3 text-gray-500">
-                      {asset.type === ElementType.VIDEO && <VideoIcon className="w-5 h-5" />}
-                      {asset.type === ElementType.AUDIO && <MusicIcon className="w-5 h-5" />}
-                      {asset.type === ElementType.IMAGE && <ImageIcon className="w-5 h-5" />}
+                    <div className="w-4 h-4 mr-2 flex-shrink-0 flex items-center justify-center opacity-70">
+                      {asset.type === ElementType.VIDEO && <VideoIcon className="w-3.5 h-3.5" />}
+                      {asset.type === ElementType.AUDIO && <MusicIcon className="w-3.5 h-3.5" />}
+                      {asset.type === ElementType.IMAGE && <ImageIcon className="w-3.5 h-3.5" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-900 dark:text-gray-200 truncate" title={asset.name}>{asset.name}</p>
-                      <p className="text-[10px] text-gray-500">{new Date(asset.createdAt).toLocaleTimeString()}</p>
+                      <p className="text-[11px] text-gray-300 truncate">{asset.name}</p>
                     </div>
                     <button
                       onClick={(e) => handleDeleteAsset(asset.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 dark:hover:bg-red-900/50 rounded text-red-500 transition"
-                      title="Delete from library"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-500 transition"
+                      data-tip="Delete from project"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-              <h3 className="text-xs text-gray-500 dark:text-gray-500 uppercase font-bold mb-3">UI Components</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => onAddElement(ElementType.TEXT)} className="flex flex-col items-center p-3 bg-white dark:bg-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
-                  <TypeIcon className="w-5 h-5 mb-1 text-blue-500 dark:text-blue-400" />
-                  <span className="text-xs text-gray-700 dark:text-gray-200">Text</span>
-                </button>
-                <button onClick={() => onAddElement(ElementType.SHAPE)} className="flex flex-col items-center p-3 bg-white dark:bg-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
-                  <SquareIcon className="w-5 h-5 mb-1 text-green-500 dark:text-green-400" />
-                  <span className="text-xs text-gray-700 dark:text-gray-200">Shape</span>
-                </button>
-                <button onClick={() => onAddElement(ElementType.ADJUSTMENT)} className="flex flex-col items-center p-3 bg-white dark:bg-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-sm transition-colors col-span-2">
-                  <LayersIcon className="w-5 h-5 mb-1 text-orange-500 dark:text-orange-400" />
-                  <span className="text-xs text-gray-700 dark:text-gray-200">Adjustment Layer</span>
-                </button>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700 transition-colors mt-3">
-                <h4 className="text-[10px] font-bold text-gray-400 mb-1 uppercase">AI Animated Components</h4>
-                <input className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white mb-2 focus:outline-none focus:border-blue-500"
-                  placeholder="e.g. Ringing Bell Button" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+            {/* ═══════════ SECTION 2: RECORD (Collapsible) ═══════════ */}
+            <div className="border-t border-[#111] flex-shrink-0">
+              <button
+                onClick={() => setShowRecordSection(!showRecordSection)}
+                className="flex items-center justify-between w-full px-3 py-[6px] bg-[#1e1e1e] hover:bg-[#252525] transition-colors text-left"
+                data-tip="Toggle Record section"
+              >
+                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Record</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                  className={`text-gray-500 transition-transform ${showRecordSection ? 'rotate-180' : ''}`}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
 
-                <button onClick={handleComponentGenerate} disabled={isGenerating} className="w-full bg-blue-600 hover:bg-blue-500 text-xs py-1 rounded text-white disabled:opacity-50 transition-colors">
-                  {isGenerating ? 'Generating...' : 'Create Component'}
-                </button>
-
-                {isGenerating && (
-                  <div className="mt-2 w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 animate-[pulse_1s_ease-in-out_infinite] w-2/3 ml-[-50%]"></div>
-                  </div>
-                )}
-              </div>
+              {showRecordSection && (
+                <div className="grid grid-cols-4 gap-[2px] p-2 bg-[#1a1a1a]">
+                  <button
+                    onClick={() => startRecording(ElementType.VIDEO, 'camera')}
+                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#2d2020] group transition"
+                    data-tip="Record video from Camera"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-red-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
+                      <CameraIcon className="w-3.5 h-3.5 text-red-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-gray-400">Camera</span>
+                  </button>
+                  <button
+                    onClick={() => startRecording(ElementType.VIDEO, 'screen')}
+                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#202028] group transition"
+                    data-tip="Record Screen"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-purple-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
+                      <MonitorIcon className="w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-gray-400">Screen</span>
+                  </button>
+                  <button
+                    onClick={() => startRecording(ElementType.AUDIO, 'camera')}
+                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#20202d] group transition"
+                    data-tip="Record Audio"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-blue-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
+                      <MusicIcon className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-gray-400">Audio</span>
+                  </button>
+                  <button
+                    onClick={startPhotoCapture}
+                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#202d20] group transition"
+                    data-tip="Capture Photo"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-emerald-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
+                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-gray-400">Photo</span>
+                  </button>
+                </div>
+              )}
             </div>
-          </>
+
+            {/* ═══════════ SECTION 3: UI COMPONENTS (Collapsible) ═══════════ */}
+            <div className="border-t border-[#111] flex-shrink-0">
+              <details className="group">
+                <summary className="flex items-center justify-between w-full px-3 py-[6px] bg-[#1e1e1e] hover:bg-[#252525] transition-colors cursor-pointer list-none" data-tip="Toggle UI Components section">
+                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">UI Components</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                    className="text-gray-500 transition-transform group-open:rotate-180">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </summary>
+                <div className="p-2 bg-[#1a1a1a] space-y-2">
+                  <div className="grid grid-cols-3 gap-[2px]">
+                    <button onClick={() => onAddElement(ElementType.TEXT)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#2a2a3a] transition" data-tip="Add Text element">
+                      <TypeIcon className="w-4 h-4 mb-0.5 text-blue-400" />
+                      <span className="text-[9px] text-gray-400">Text</span>
+                    </button>
+                    <button onClick={() => onAddElement(ElementType.SHAPE)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#2a3a2a] transition" data-tip="Add Shape element">
+                      <SquareIcon className="w-4 h-4 mb-0.5 text-green-400" />
+                      <span className="text-[9px] text-gray-400">Shape</span>
+                    </button>
+                    <button onClick={() => onAddElement(ElementType.ADJUSTMENT)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#3a2a2a] transition" data-tip="Add Adjustment Layer">
+                      <LayersIcon className="w-4 h-4 mb-0.5 text-orange-400" />
+                      <span className="text-[9px] text-gray-400">Adjust</span>
+                    </button>
+                  </div>
+                  <div className="bg-[#262626] p-2 rounded">
+                    <h4 className="text-[9px] font-bold text-gray-500 mb-1 uppercase">AI Component</h4>
+                    <div className="flex gap-1">
+                      <input className="flex-1 bg-[#1a1a1a] border border-[#333] rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-blue-500"
+                        placeholder="e.g. Ringing Bell" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+                      <button onClick={handleComponentGenerate} disabled={isGenerating} className="bg-blue-600 hover:bg-blue-500 text-[10px] px-2 py-1 rounded text-white disabled:opacity-50 transition-colors whitespace-nowrap" data-tip="Generate AI Component">
+                        {isGenerating ? '...' : 'Go'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+          </div>
         )}
 
         {activeTab === 'image' && (
-          <div className="space-y-4">
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 transition-colors">
-              <h3 className="text-xs text-indigo-700 dark:text-indigo-200 font-bold mb-2 flex items-center"><SparklesIcon className="w-3 h-3 mr-1" /> AI Image Generation</h3>
+          <div className="p-3 space-y-4">
+            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16162a] p-4 rounded border border-[#2a2a4a] transition-colors">
+              <h3 className="text-[11px] text-indigo-300 font-bold mb-3 flex items-center"><SparklesIcon className="w-3.5 h-3.5 mr-1.5" /> AI Image Generation</h3>
               <textarea
-                className="w-full bg-white/80 dark:bg-black/30 border border-indigo-200 dark:border-indigo-500/30 rounded p-2 text-xs text-gray-900 dark:text-white mb-3 focus:outline-none resize-none"
+                className="w-full bg-[#111122] border border-[#333355] rounded p-2 text-[11px] text-white mb-3 focus:outline-none focus:border-indigo-500 resize-none placeholder-gray-600"
                 rows={3} placeholder="A cyberpunk dog eating noodles..."
                 value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)}
                 disabled={isGenerating}
               />
-              <button onClick={handleImageGenerate} disabled={isGenerating || !imgPrompt.trim()} className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 rounded text-xs font-bold text-white transition disabled:opacity-50 shadow-md flex items-center justify-center">
+              <button onClick={handleImageGenerate} disabled={isGenerating || !imgPrompt.trim()} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-[11px] font-bold text-white transition disabled:opacity-50 flex items-center justify-center" data-tip="Generate image using AI">
                 {isGenerating ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -781,14 +846,14 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
               {/* Loading indicator */}
               {isGenerating && (
                 <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-center text-xs text-indigo-600 dark:text-indigo-300">
+                  <div className="flex items-center justify-center text-[10px] text-indigo-400">
                     <SparklesIcon className="w-3 h-3 mr-1 animate-pulse" />
                     Creating your image with AI...
                   </div>
-                  <div className="w-full h-1.5 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden">
+                  <div className="w-full h-1 bg-[#1a1a2e] rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-full animate-[shimmer_1.5s_ease-in-out_infinite]" style={{ width: '100%', backgroundSize: '200% 100%' }}></div>
                   </div>
-                  <p className="text-[10px] text-center text-gray-500 dark:text-gray-400">Image will be saved to your library</p>
+                  <p className="text-[9px] text-center text-gray-500">Image will be saved to your library</p>
                 </div>
               )}
             </div>
@@ -802,7 +867,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, panelWidth, onO
         isOpen={deleteConfirm.isOpen}
         onClose={() => setDeleteConfirm({ isOpen: false, assetId: null })}
         onConfirm={confirmDeleteAsset}
-        title="Delete Asset"
+        data-tip="Delete Asset"
         message="Are you sure you want to remove this asset from your library? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
