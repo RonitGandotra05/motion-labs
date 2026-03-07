@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ElementType } from '../../types';
+import MonitorTransport from '../ui/MonitorTransport';
 
 export interface SourceClip {
     name: string;
@@ -53,21 +54,11 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
         setIsPlaying(false);
     };
 
-    const stepFrame = (dir: number) => {
+    const handleSeek = (time: number) => {
         const media = videoRef.current || audioRef.current;
-        if (media) {
-            media.currentTime = Math.max(0, Math.min(media.duration, media.currentTime + dir * (1 / 30)));
-            setCurrentTime(media.currentTime);
-        }
-    };
-
-    const formatTC = (t: number) => {
-        if (!t || isNaN(t)) return '00:00:00:00';
-        const h = Math.floor(t / 3600);
-        const m = Math.floor((t % 3600) / 60);
-        const s = Math.floor(t % 60);
-        const f = Math.floor((t % 1) * 30);
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+        if (!media) return;
+        media.currentTime = Math.max(0, Math.min(media.duration || 0, time));
+        setCurrentTime(media.currentTime);
     };
 
     const isVideo = clip?.type === ElementType.VIDEO;
@@ -118,14 +109,15 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
                 )}
             </div>
 
-            {/* Source Monitor Toolbar */}
-            <div className="flex-shrink-0 h-[36px] bg-pp-dark w-full border-t border-black/30 flex items-center px-4 justify-between relative">
-                {/* Left: Timecode and Fit */}
-                <div className="flex items-center space-x-4">
-                    <span className="pp-timecode text-pp-timecode text-[12px] font-mono">
-                        {formatTC(currentTime)}
-                    </span>
-
+            <MonitorTransport
+                currentTime={currentTime}
+                duration={duration}
+                isPlaying={isPlaying}
+                onSeek={handleSeek}
+                onTogglePlay={togglePlay}
+                disabled={!clip || isImage}
+                stepAmount={1 / 30}
+                leftControls={(
                     <select
                         value={monitorZoom}
                         onChange={(e) => setMonitorZoom(e.target.value as any)}
@@ -136,58 +128,30 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
                         <option value="100" className="bg-pp-menu-bg">100%</option>
                         <option value="200" className="bg-pp-menu-bg">200%</option>
                     </select>
-                </div>
-
-                {/* Center: Transport Controls */}
-                <div className="flex items-center space-x-1 absolute left-1/2 -translate-x-1/2">
-                    <button className="pp-transport-btn" data-tip="Mark In" onClick={() => { }}>
-                        <span className="text-[10px]">{`{`}</span>
-                    </button>
-                    <button className="pp-transport-btn" data-tip="Step Back 1 Frame" onClick={() => stepFrame(-1)}>
-                        <span className="text-[10px]">◀</span>
-                    </button>
-                    <button
-                        className="pp-transport-btn w-8 h-8 mx-1"
-                        data-tip={isPlaying ? "Stop" : "Play"}
-                        onClick={togglePlay}
-                        disabled={!clip || isImage}
-                    >
-                        {isPlaying ? <span className="text-[12px]">⏸</span> : <span className="text-[14px]">▶</span>}
-                    </button>
-                    <button className="pp-transport-btn" data-tip="Step Forward 1 Frame" onClick={() => stepFrame(1)}>
-                        <span className="text-[10px]">▶</span>
-                    </button>
-                    <button className="pp-transport-btn" data-tip="Mark Out" onClick={() => { }}>
-                        <span className="text-[10px]">{`}`}</span>
-                    </button>
-                </div>
-
-                {/* Right: Insert + Overwrite */}
-                <div className="flex items-center space-x-2">
-                    {clip && onInsertToTimeline && (
-                        <>
-                            <button
-                                onClick={() => onInsertToTimeline(clip)}
-                                className="pp-icon-btn w-6 h-6 border border-transparent text-pp-text-dim hover:text-white hover:bg-pp-light"
-                                data-tip="Insert (,)"
-                            >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M11 19V5M5 12h12" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={() => onInsertToTimeline(clip)}
-                                className="pp-icon-btn w-6 h-6 border border-transparent text-pp-text-dim hover:text-white hover:bg-pp-light"
-                                data-tip="Overwrite (.)"
-                            >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M5 4h14v16H5z" />
-                                </svg>
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
+                )}
+                rightControls={clip && onInsertToTimeline ? (
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => onInsertToTimeline(clip)}
+                            className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim hover:bg-pp-light hover:text-white"
+                            data-tip="Insert (,)"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 19V5M5 12h12" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => onInsertToTimeline(clip)}
+                            className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim hover:bg-pp-light hover:text-white"
+                            data-tip="Overwrite (.)"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M5 4h14v16H5z" />
+                            </svg>
+                        </button>
+                    </div>
+                ) : null}
+            />
         </div>
     );
 };

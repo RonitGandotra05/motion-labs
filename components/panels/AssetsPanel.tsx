@@ -19,8 +19,12 @@ const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'av
 
 const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, panelWidth, onOpenSettings }) => {
   const [activeTab, setActiveTab] = useState<'library' | 'image'>('library');
+  const [assetViewMode, setAssetViewMode] = useState<'sequence' | 'grid'>('sequence');
   const [libraryAssets, setLibraryAssets] = useState<MediaAsset[]>([]);
+  const [assetPreviewUrls, setAssetPreviewUrls] = useState<Record<string, string>>({});
+  const assetPreviewUrlsRef = useRef<Record<string, string>>({});
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [assetPreviewSize, setAssetPreviewSize] = useState(64);
 
   // Recorder State
   const [isRecording, setIsRecording] = useState(false);
@@ -44,6 +48,38 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
 
   useEffect(() => {
     refreshLibrary();
+  }, []);
+
+  useEffect(() => {
+    setAssetPreviewUrls(prev => {
+      const next = { ...prev };
+      const activeIds = new Set(libraryAssets.map(asset => asset.id));
+
+      libraryAssets.forEach(asset => {
+        if (!next[asset.id]) {
+          next[asset.id] = URL.createObjectURL(asset.blob);
+        }
+      });
+
+      Object.entries(next).forEach(([assetId, url]) => {
+        if (!activeIds.has(assetId)) {
+          URL.revokeObjectURL(url);
+          delete next[assetId];
+        }
+      });
+
+      return next;
+    });
+  }, [libraryAssets]);
+
+  useEffect(() => {
+    assetPreviewUrlsRef.current = assetPreviewUrls;
+  }, [assetPreviewUrls]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(assetPreviewUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
+    };
   }, []);
 
   const clearRecordingPreview = () => {
@@ -216,15 +252,47 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
   };
 
   const handleAddToTimeline = (asset: MediaAsset) => {
-    const url = URL.createObjectURL(asset.blob);
+    const url = assetPreviewUrls[asset.id] || URL.createObjectURL(asset.blob);
     onAddElement(asset.type, { src: url, name: asset.name, assetId: asset.id });
   };
 
   const handlePreviewClip = (asset: MediaAsset) => {
     if (onPreviewClip) {
-      const url = URL.createObjectURL(asset.blob);
+      const url = assetPreviewUrls[asset.id] || URL.createObjectURL(asset.blob);
       onPreviewClip({ name: asset.name, type: asset.type, src: url, assetId: asset.id });
     }
+  };
+
+  const renderAssetPreview = (asset: MediaAsset) => {
+    const previewUrl = assetPreviewUrls[asset.id];
+    const previewSize = `${assetPreviewSize}px`;
+
+    if (asset.type === ElementType.VIDEO && previewUrl) {
+      return (
+        <video
+          src={previewUrl}
+          className="h-full w-full object-cover"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      );
+    }
+
+    if (asset.type === ElementType.IMAGE && previewUrl) {
+      return <img src={previewUrl} alt={asset.name} className="h-full w-full object-cover" />;
+    }
+
+    return (
+      <div
+        className={`flex h-full w-full items-center justify-center ${asset.type === ElementType.AUDIO ? 'bg-gradient-to-br from-[#173422] via-[#1f5a37] to-[#2b7a52]' : 'bg-gradient-to-br from-[#20242b] via-[#2d4058] to-[#4a6a8f]'}`}
+        style={{ width: previewSize, height: previewSize }}
+      >
+        {asset.type === ElementType.VIDEO && <VideoIcon className="h-6 w-6 text-white/75" />}
+        {asset.type === ElementType.AUDIO && <MusicIcon className="h-6 w-6 text-white/75" />}
+        {asset.type === ElementType.IMAGE && <ImageIcon className="h-6 w-6 text-white/75" />}
+      </div>
+    );
   };
 
   // OS File Drag & Drop
@@ -662,10 +730,48 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
               {/* Resource Manager Header Bar */}
               <div className="flex items-center justify-between px-3 py-[6px] bg-[#1e1e1e] border-b border-[#111] flex-shrink-0">
                 <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Resource Manager</span>
-                <label className="cursor-pointer text-[#5b9bd5] hover:text-[#7cb8e8] text-[10px] flex items-center font-semibold" data-tip="Import media files">
-                  <PlusIcon className="w-3 h-3 mr-1" /> IMPORT
-                  <input type="file" className="hidden" multiple onChange={handleFileUpload} />
-                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center rounded border border-[#333] bg-[#181818] p-[1px]">
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'sequence' ? 'bg-[#2f2f2f] text-white' : 'text-gray-500 hover:text-white'}`}
+                      onClick={() => setAssetViewMode('sequence')}
+                      data-tip="Sequence view"
+                    >
+                      Seq
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'grid' ? 'bg-[#2f2f2f] text-white' : 'text-gray-500 hover:text-white'}`}
+                      onClick={() => setAssetViewMode('grid')}
+                      data-tip="Grid view"
+                    >
+                      Grid
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                    <button
+                      type="button"
+                      className="pp-icon-btn h-5 w-5"
+                      onClick={() => setAssetPreviewSize(size => Math.max(44, size - 12))}
+                      data-tip="Smaller thumbnails"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      className="pp-icon-btn h-5 w-5"
+                      onClick={() => setAssetPreviewSize(size => Math.min(120, size + 12))}
+                      data-tip="Larger thumbnails"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <label className="cursor-pointer text-[#5b9bd5] hover:text-[#7cb8e8] text-[10px] flex items-center font-semibold" data-tip="Import media files">
+                    <PlusIcon className="w-3 h-3 mr-1" /> IMPORT
+                    <input type="file" className="hidden" multiple onChange={handleFileUpload} />
+                  </label>
+                </div>
               </div>
 
               {/* Media List / Drop Zone */}
@@ -689,33 +795,52 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                     </p>
                   </div>
                 )}
-                {libraryAssets.map((asset, index) => (
-                  <div
-                    key={asset.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, asset)}
-                    className={`group flex items-center px-3 py-[3px] ${index % 2 === 0 ? 'bg-[#232323]' : 'bg-[#1e1e1e]'} hover:bg-[#2a3a4a] transition-colors cursor-grab active:cursor-grabbing border-l-[3px] ${asset.type === ElementType.VIDEO ? 'border-[#6b8aad]' : asset.type === ElementType.AUDIO ? 'border-[#4e9a4e]' : 'border-[#ad7b6b]'}`}
-                    onClick={() => handlePreviewClip(asset)}
-                    onDoubleClick={() => handleAddToTimeline(asset)}
-                    data-tip={`Click to preview "${asset.name}" • Double-click to add to timeline`}
-                  >
-                    <div className="w-4 h-4 mr-2 flex-shrink-0 flex items-center justify-center opacity-70">
-                      {asset.type === ElementType.VIDEO && <VideoIcon className="w-3.5 h-3.5" />}
-                      {asset.type === ElementType.AUDIO && <MusicIcon className="w-3.5 h-3.5" />}
-                      {asset.type === ElementType.IMAGE && <ImageIcon className="w-3.5 h-3.5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-gray-300 truncate">{asset.name}</p>
-                    </div>
-                    <button
-                      onClick={(e) => handleDeleteAsset(asset.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-500 transition"
-                      data-tip="Delete from project"
+                <div className={assetViewMode === 'grid' ? 'grid grid-cols-2 gap-2 p-2 md:grid-cols-3' : ''}>
+                  {libraryAssets.map((asset, index) => (
+                    <div
+                      key={asset.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, asset)}
+                      className={
+                        assetViewMode === 'grid'
+                          ? `group relative overflow-hidden rounded border border-white/10 bg-[#1d1d1d] cursor-grab active:cursor-grabbing hover:border-[#5b9bd5]/70 hover:bg-[#252d38] transition`
+                          : `group flex items-center gap-3 px-3 py-2 ${index % 2 === 0 ? 'bg-[#232323]' : 'bg-[#1e1e1e]'} hover:bg-[#2a3a4a] transition-colors cursor-grab active:cursor-grabbing border-l-[3px] ${asset.type === ElementType.VIDEO ? 'border-[#6b8aad]' : asset.type === ElementType.AUDIO ? 'border-[#4e9a4e]' : 'border-[#ad7b6b]'}`
+                      }
+                      onClick={() => handlePreviewClip(asset)}
+                      onDoubleClick={() => handleAddToTimeline(asset)}
+                      data-tip={`Click to preview "${asset.name}" • Double-click to add to timeline`}
                     >
-                      <TrashIcon className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+                      <div
+                        className="relative flex-shrink-0 overflow-hidden rounded border border-white/10 bg-black/30"
+                        style={{
+                          width: assetViewMode === 'grid' ? '100%' : `${assetPreviewSize}px`,
+                          height: assetViewMode === 'grid' ? `${Math.max(88, assetPreviewSize + 18)}px` : `${assetPreviewSize}px`
+                        }}
+                      >
+                        {renderAssetPreview(asset)}
+                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+                        <div className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/80">
+                          {asset.type === ElementType.VIDEO ? 'Video' : asset.type === ElementType.AUDIO ? 'Audio' : 'Image'}
+                        </div>
+                      </div>
+                      <div className={assetViewMode === 'grid' ? 'p-2' : 'flex-1 min-w-0 self-stretch py-1'}>
+                        <p className="text-[11px] text-gray-200 truncate">{asset.name}</p>
+                        <p className="mt-1 text-[9px] uppercase tracking-wide text-gray-500">
+                          {asset.type === ElementType.VIDEO ? 'Double-click to add linked V+A' : asset.type}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteAsset(asset.id, e)}
+                        className={assetViewMode === 'grid'
+                          ? 'absolute right-1 top-1 opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-300 transition bg-black/40'
+                          : 'opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-500 transition self-start mt-1'}
+                        data-tip="Delete from project"
+                      >
+                        <TrashIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

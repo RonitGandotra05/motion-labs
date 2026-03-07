@@ -214,6 +214,43 @@
       color: #e0e0e0;
     }
 
+    .pp-transport-btn:disabled {
+      cursor: not-allowed;
+      color: #555555;
+    }
+
+    .pp-monitor-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #d6d6d6;
+      border: 1px solid #111111;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      margin-top: -3px;
+    }
+
+    .pp-monitor-range::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #d6d6d6;
+      border: 1px solid #111111;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+    }
+
+    .pp-monitor-range::-webkit-slider-runnable-track {
+      height: 4px;
+      background: transparent;
+    }
+
+    .pp-monitor-range::-moz-range-track {
+      height: 4px;
+      background: transparent;
+      border: none;
+    }
+
     /* Premiere Pro input styling */
     .pp-input {
       background: #1a1a1a;

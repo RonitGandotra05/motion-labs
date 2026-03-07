@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { EditorElement, ElementType } from '../../types';
-import { PlayIcon, PauseIcon } from '../ui/Icons';
+import MonitorTransport from '../ui/MonitorTransport';
 
 interface VideoPreviewProps {
   currentTime: number;
@@ -13,6 +13,7 @@ interface VideoPreviewProps {
   togglePlay: () => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
+  onResetSelectedMediaToFrame: (ratio?: string) => void;
   duration: number;
   onDurationChange?: (duration: number) => void;
 }
@@ -32,6 +33,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   togglePlay,
   aspectRatio,
   onAspectRatioChange,
+  onResetSelectedMediaToFrame,
   duration
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -373,26 +375,34 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
         const nextWidth = Math.max(1, newW);
         const nextHeight = Math.max(1, newH);
-        const shouldLockAspectRatio = elements.find(element => element.id === selectedElementId)?.lockAspectRatio;
+        const selectedElement = elements.find(element => element.id === selectedElementId);
+        const shouldLockAspectRatio = selectedElement?.lockAspectRatio;
 
         if (shouldLockAspectRatio) {
-          const selectedElement = elements.find(element => element.id === selectedElementId);
           const lockedAspectRatio =
             selectedElement?.props.sourceAspectRatio ||
             (initialElementState.w > 0 && initialElementState.h > 0 ? initialElementState.w / initialElementState.h : 1);
 
+          const originalCenterX = initialElementState.x + (initialElementState.w / 2);
+          const originalCenterY = initialElementState.y + (initialElementState.h / 2);
           let adjustedWidth = nextWidth;
           let adjustedHeight = nextHeight;
 
           if (resizeHandle === 'n' || resizeHandle === 's') {
             adjustedWidth = adjustedHeight * lockedAspectRatio;
-          } else {
+          } else if (resizeHandle === 'e' || resizeHandle === 'w') {
             adjustedHeight = adjustedWidth / lockedAspectRatio;
+          } else {
+            const widthScale = nextWidth / Math.max(1, initialElementState.w);
+            const heightScale = nextHeight / Math.max(1, initialElementState.h);
+            const scale = Math.max(widthScale, heightScale);
+            adjustedWidth = Math.max(1, initialElementState.w * scale);
+            adjustedHeight = Math.max(1, initialElementState.h * scale);
           }
 
           onUpdateElement(selectedElementId, {
-            x: newX,
-            y: newY,
+            x: originalCenterX - (adjustedWidth / 2),
+            y: originalCenterY - (adjustedHeight / 2),
             width: Math.max(1, adjustedWidth),
             height: Math.max(1, adjustedHeight)
           });
@@ -651,7 +661,13 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     }
 
     return (
-      <div key={el.id} style={style} onMouseDown={(e) => handleElementMouseDown(e, el)} onTouchStart={(e) => handleElementMouseDown(e, el)}>
+      <div
+        key={el.id}
+        style={style}
+        onMouseDown={(e) => handleElementMouseDown(e, el)}
+        onTouchStart={(e) => handleElementMouseDown(e, el)}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {el.type === ElementType.VIDEO && el.props.src && (
           <div style={mediaViewportStyle}>
@@ -768,98 +784,65 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         </div>
       </div>
 
-      {/* Premiere Pro Program Monitor Toolbar - pinned at bottom */}
-      <div className="flex-shrink-0 h-[36px] bg-pp-dark w-full border-t border-black/30 flex items-center px-4 relative z-20">
-        {/* Left: Timecode and Fit */}
-        <div className="flex items-center space-x-4 flex-shrink-0">
-          <span className="pp-timecode text-pp-timecode text-[12px] font-mono">
-            {Math.floor(currentTime / 60).toString().padStart(2, '0')}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}:00:00
-          </span>
-
-          <select
-            value={aspectRatio}
-            onChange={(e) => onAspectRatioChange(e.target.value)}
-            className="bg-transparent border border-transparent hover:border-pp-border rounded px-1 py-0.5 text-[11px] text-pp-text-dim hover:text-pp-text outline-none cursor-pointer hidden md:block"
-            data-tip="Sequence Settings"
-          >
-            {aspectRatioPresets.map(preset => (
-              <option key={preset.value} value={preset.value} className="bg-pp-menu-bg text-pp-text">{preset.label} ({preset.value})</option>
-            ))}
-          </select>
-
-          <select
-            value={monitorZoom}
-            onChange={(e) => setMonitorZoom(e.target.value as any)}
-            className="bg-pp-dark border border-pp-border rounded px-2 py-0.5 text-[11px] text-pp-text outline-none cursor-pointer"
-          >
-            <option value="fit" className="bg-pp-menu-bg">Fit</option>
-            <option value="50" className="bg-pp-menu-bg">50%</option>
-            <option value="100" className="bg-pp-menu-bg">100%</option>
-            <option value="200" className="bg-pp-menu-bg">200%</option>
-          </select>
-        </div>
-
-        {/* Center: Transport Controls & Scrubber */}
-        <div className="flex flex-col items-center flex-1 justify-center relative px-4" style={{ marginTop: '-4px' }}>
-          {/* Scrubber above buttons */}
-          <div className="w-full h-[6px] relative group flex items-center mb-0.5 mt-[-8px]">
-            <input
-              type="range"
-              min="0"
-              max={Math.max(duration, 0.1)}
-              step="0.01"
-              value={currentTime}
-              onChange={(e) => onTimeUpdate(Number(e.target.value))}
-              className="absolute inset-0 w-full opacity-100 outline-none cursor-pointer z-10"
-              style={{
-                background: 'transparent',
-                accentColor: '#e0e0e0', // Light gray knob
-              }}
-            />
-            {/* Custom Track Background */}
-            <div className="absolute left-0 right-0 h-[2px] bg-[#111111] top-1/2 -translate-y-1/2 group-hover:bg-[#2a2a2a] transition-colors pointer-events-none rounded">
-              {/* Fill */}
-              <div
-                className="h-full bg-[#4e9fd5] rounded"
-                style={{ width: `${(currentTime / Math.max(duration, 0.1)) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Transport Buttons */}
-          <div className="flex items-center space-x-1">
-            <button onClick={() => onTimeUpdate(0)} className="pp-transport-btn" data-tip="Go to In"><span className="text-[10px]">⏮</span></button>
-            <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.max(0, currentTime - 0.1))} data-tip="Step Back 1 Frame"><span className="text-[10px]">◀</span></button>
-            <button
-              onClick={togglePlay}
-              className="pp-transport-btn w-8 h-8 mx-1"
-              data-tip={isPlaying ? "Stop" : "Play"}
+      <MonitorTransport
+        currentTime={currentTime}
+        duration={duration}
+        isPlaying={isPlaying}
+        onSeek={onTimeUpdate}
+        onTogglePlay={togglePlay}
+        leftControls={(
+          <>
+            <select
+              value={aspectRatio}
+              onChange={(e) => onAspectRatioChange(e.target.value)}
+              className="hidden cursor-pointer rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-pp-text-dim outline-none hover:border-pp-border hover:text-pp-text md:block"
+              data-tip="Sequence Settings"
             >
-              {isPlaying ? <span className="text-[12px]">⏸</span> : <span className="text-[14px]">▶</span>}
-            </button>
-            <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.min(duration, currentTime + 0.1))} data-tip="Step Forward 1 Frame"><span className="text-[10px]">▶</span></button>
-            <button onClick={() => onTimeUpdate(duration)} className="pp-transport-btn" data-tip="Go to Out"><span className="text-[10px]">⏭</span></button>
-          </div>
-        </div>
+              {aspectRatioPresets.map(preset => (
+                <option key={preset.value} value={preset.value} className="bg-pp-menu-bg text-pp-text">{preset.label} ({preset.value})</option>
+              ))}
+            </select>
 
-        {/* Right: Tools & Overlays */}
-        <div className="flex items-center space-x-2 flex-shrink-0">
-          <button
-            onClick={() => setShowSafeMargins(prev => !prev)}
-            className={`pp-icon-btn w-6 h-6 border ${showSafeMargins ? 'border-pp-accent text-pp-accent bg-pp-light' : 'border-transparent text-pp-text-dim'}`}
-            data-tip="Safe Margins"
-          >
-            <span className="text-[10px]">☐</span>
-          </button>
-          <button
-            onClick={() => { }}
-            className="pp-icon-btn w-6 h-6 border border-transparent text-pp-text-dim"
-            data-tip="Button Editor"
-          >
-            <span className="text-[12px] font-bold">+</span>
-          </button>
-        </div>
-      </div>
+            <select
+              value={monitorZoom}
+              onChange={(e) => setMonitorZoom(e.target.value as any)}
+              className="bg-pp-dark border border-pp-border rounded px-2 py-0.5 text-[11px] text-pp-text outline-none cursor-pointer"
+            >
+              <option value="fit" className="bg-pp-menu-bg">Fit</option>
+              <option value="50" className="bg-pp-menu-bg">50%</option>
+              <option value="100" className="bg-pp-menu-bg">100%</option>
+              <option value="200" className="bg-pp-menu-bg">200%</option>
+            </select>
+          </>
+        )}
+        rightControls={(
+          <div className="flex items-center space-x-2">
+            {selectedMediaElement && (
+              <button
+                onClick={() => onResetSelectedMediaToFrame()}
+                className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim"
+                data-tip="Fit selected media to frame"
+              >
+                <span className="text-[11px]">↺</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowSafeMargins(prev => !prev)}
+              className={`pp-icon-btn h-6 w-6 border ${showSafeMargins ? 'border-pp-accent text-pp-accent bg-pp-light' : 'border-transparent text-pp-text-dim'}`}
+              data-tip="Safe Margins"
+            >
+              <span className="text-[10px]">☐</span>
+            </button>
+            <button
+              onClick={() => { }}
+              className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim"
+              data-tip="Button Editor"
+            >
+              <span className="text-[12px] font-bold">+</span>
+            </button>
+          </div>
+        )}
+      />
     </div>
   );
 });
