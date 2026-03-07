@@ -4,8 +4,14 @@ import AssetsPanel from './components/panels/AssetsPanel';
 import SettingsPanel from './components/panels/SettingsPanel';
 import PropertiesPanel from './components/panels/PropertiesPanel';
 import ColorPanel from './components/panels/ColorPanel';
+import SourceMonitorPanel, { SourceClip } from './components/panels/SourceMonitorPanel';
+import EffectsPanel from './components/panels/EffectsPanel';
+import AudioMixerPanel from './components/panels/AudioMixerPanel';
 import VideoPreview, { VideoPreviewHandle } from './components/preview/VideoPreview';
 import Timeline from './components/timeline/Timeline';
+import MenuBar from './components/ui/MenuBar';
+import ToolsPanel from './components/ui/ToolsPanel';
+import type { ToolMode } from './components/ui/ToolsPanel';
 import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker } from './types';
 import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT } from './constants';
 import { getAssetById, getAssets, saveProjectState, loadProjectState } from './utils/db';
@@ -39,17 +45,21 @@ function App() {
   const [isRestoring, setIsRestoring] = useState(true);
   const [timelineHeight, setTimelineHeight] = useState(300);
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
+  const [topLeftPanelWidth, setTopLeftPanelWidth] = useState(500);
+  const [bottomLeftPanelWidth, setBottomLeftPanelWidth] = useState(340);
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
-  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingTopLeft, setIsResizingTopLeft] = useState(false);
+  const [isResizingBottomLeft, setIsResizingBottomLeft] = useState(false);
   const [isResizingRight, setIsResizingRight] = useState(false);
   const [rippleEditMode, setRippleEditMode] = useState(false); // DaVinci-style ripple edit
   const [snapEnabled, setSnapEnabled] = useState(true); // Magnetic snap toggle
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
-  const [activeRightTab, setActiveRightTab] = useState<'properties' | 'color'>('properties');
+  const [activeRightTab, setActiveRightTab] = useState<'source' | 'properties' | 'color'>('source');
+  const [activeLeftBottomTab, setActiveLeftBottomTab] = useState<'project' | 'effects'>('project');
+  const [sourceClip, setSourceClip] = useState<SourceClip | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'timeline' | 'assets' | 'properties'>('timeline');
-  const [toolMode, setToolMode] = useState<'pointer' | 'blade' | 'slip' | 'roll'>('pointer');
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [toolMode, setToolMode] = useState<ToolMode>('pointer');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
 
   const parseAspectRatio = (ratio: string) => {
@@ -124,7 +134,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 600);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -277,20 +287,21 @@ function App() {
       }
 
       if (workspaceRect) {
-        if (isResizingLeft) {
-          const maxLeftWidth = Math.min(
-            MAX_SIDE_PANEL_WIDTH,
-            workspaceRect.width - rightPanelWidth - MIN_PREVIEW_WIDTH
-          );
+        if (isResizingTopLeft) {
+          const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
           const newWidth = clamp(e.clientX - workspaceRect.left, MIN_SIDE_PANEL_WIDTH, maxLeftWidth);
-          setLeftPanelWidth(newWidth);
+          setTopLeftPanelWidth(newWidth);
+        }
+
+        if (isResizingBottomLeft) {
+          const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+          const newWidth = clamp(e.clientX - workspaceRect.left, MIN_SIDE_PANEL_WIDTH, maxLeftWidth);
+          setBottomLeftPanelWidth(newWidth);
         }
 
         if (isResizingRight) {
-          const maxRightWidth = Math.min(
-            MAX_SIDE_PANEL_WIDTH,
-            workspaceRect.width - leftPanelWidth - MIN_PREVIEW_WIDTH
-          );
+          // Keep right resize logic if any right panels exist, otherwise it's a no-op
+          const maxRightWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
           const newWidth = clamp(workspaceRect.right - e.clientX, MIN_SIDE_PANEL_WIDTH, maxRightWidth);
           setRightPanelWidth(newWidth);
         }
@@ -299,11 +310,12 @@ function App() {
 
     const handleMouseUp = () => {
       setIsResizingTimeline(false);
-      setIsResizingLeft(false);
+      setIsResizingTopLeft(false);
+      setIsResizingBottomLeft(false);
       setIsResizingRight(false);
     };
 
-    const isResizing = isResizingTimeline || isResizingLeft || isResizingRight;
+    const isResizing = isResizingTimeline || isResizingTopLeft || isResizingBottomLeft || isResizingRight;
 
     if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -318,7 +330,7 @@ function App() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isResizingTimeline, isResizingLeft, isResizingRight, leftPanelWidth, rightPanelWidth]);
+  }, [isResizingTimeline, isResizingTopLeft, isResizingBottomLeft, isResizingRight]);
 
   useEffect(() => {
     if (isMobile) return;
@@ -328,16 +340,11 @@ function App() {
       const appRect = appRef.current?.getBoundingClientRect();
 
       if (workspaceRect) {
-        const maxLeftWidth = Math.min(
-          MAX_SIDE_PANEL_WIDTH,
-          workspaceRect.width - rightPanelWidth - MIN_PREVIEW_WIDTH
-        );
-        const maxRightWidth = Math.min(
-          MAX_SIDE_PANEL_WIDTH,
-          workspaceRect.width - leftPanelWidth - MIN_PREVIEW_WIDTH
-        );
+        const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+        const maxRightWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
 
-        setLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
+        setTopLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
+        setBottomLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
         setRightPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxRightWidth));
       }
 
@@ -353,7 +360,7 @@ function App() {
     syncDesktopPanelBounds();
     window.addEventListener('resize', syncDesktopPanelBounds);
     return () => window.removeEventListener('resize', syncDesktopPanelBounds);
-  }, [isMobile, leftPanelWidth, rightPanelWidth]);
+  }, [isMobile]);
 
   // Save current state to history (call before making changes)
   const saveToHistory = useCallback(() => {
@@ -425,21 +432,24 @@ function App() {
         return;
       }
 
-      // Tool selection shortcuts
-      if (e.key === 'v' && !e.metaKey && !e.ctrlKey) {
-        setToolMode('pointer');
-        return;
-      }
-      if (e.key === 'b' && !e.metaKey && !e.ctrlKey) {
-        setToolMode('blade');
-        return;
-      }
-      if (e.key === 't' && !e.metaKey && !e.ctrlKey) {
-        setToolMode('slip');
-        return;
-      }
-      if (e.key === 'y' && !e.metaKey && !e.ctrlKey) {
-        setToolMode('roll');
+      // Tool selection shortcuts (match Premiere Pro)
+      const toolShortcuts: Record<string, ToolMode> = {
+        'v': 'pointer',
+        'a': 'track-select',
+        'b': 'ripple-edit',
+        'c': 'blade',
+        'y': 'slip',
+        'u': 'slide',
+        'n': 'roll',
+        'x': 'rate-stretch',
+        'p': 'pen',
+        'h': 'hand',
+        'z': 'zoom',
+        't': 'type',
+      };
+      const toolKey = e.key.toLowerCase();
+      if (toolShortcuts[toolKey] && !e.metaKey && !e.ctrlKey) {
+        setToolMode(toolShortcuts[toolKey]);
         return;
       }
 
@@ -704,12 +714,26 @@ function App() {
 
     return new Promise(resolve => {
       const media = document.createElement(type === ElementType.AUDIO ? 'audio' : 'video');
-      media.preload = 'metadata';
-      media.onloadedmetadata = () => {
-        const duration = Number.isFinite(media.duration) ? media.duration : null;
-        resolve(duration && duration > 0 ? duration : null);
+      media.preload = 'auto'; // Use 'auto' instead of 'metadata' to ensure full duration is available
+
+      let resolved = false;
+      const tryResolve = () => {
+        if (resolved) return;
+        const d = media.duration;
+        if (Number.isFinite(d) && d > 0) {
+          resolved = true;
+          resolve(d);
+        }
       };
-      media.onerror = () => resolve(null);
+
+      media.onloadedmetadata = tryResolve;
+      media.ondurationchange = tryResolve; // Some formats report duration later
+      media.oncanplaythrough = tryResolve; // Fallback: once fully buffered
+      media.onerror = () => { if (!resolved) { resolved = true; resolve(null); } };
+
+      // Timeout safety: if duration not available after 10s, resolve null
+      setTimeout(() => { if (!resolved) { resolved = true; resolve(null); } }, 10000);
+
       media.src = src;
     });
   };
@@ -963,11 +987,11 @@ function App() {
       });
       return modified
         ? {
-            ...prev,
-            elements: newElements,
-            selectedElementId: null,
-            selectedElementIds: []
-          }
+          ...prev,
+          elements: newElements,
+          selectedElementId: null,
+          selectedElementIds: []
+        }
         : prev;
     });
   };
@@ -1367,351 +1391,106 @@ function App() {
   const selectedElement = project.elements.find(el => el.id === project.selectedElementId) || null;
 
   return (
-    <div ref={appRef} className="flex h-screen flex-col overflow-x-hidden bg-white text-gray-900 transition-colors duration-200 dark:bg-black dark:text-white">
-      {/* Header */}
-      <header className="z-50 border-b border-gray-200 bg-white transition-colors dark:border-gray-800 dark:bg-gray-900">
-        {isMobile ? (
-          <div className="px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex h-8 w-8 flex-none items-center justify-center rounded bg-blue-600 shadow-md">
-                  <LayersIcon className="text-white" />
-                </div>
-                <h1 className="min-w-0 text-base font-bold tracking-tight text-gray-900 dark:text-white">
-                  Motion <span className="text-blue-600 dark:text-blue-500">Labs</span>
-                </h1>
-              </div>
+    <div ref={appRef} className="flex h-screen flex-col overflow-hidden bg-pp-darkest text-pp-text">
+      {/* Premiere Pro Menu Bar */}
+      <MenuBar
+        onSave={handleSaveProject}
+        onLoad={handleLoadProject}
+        onExport={handleExport}
+        onShowShortcuts={() => setShowKeyboardShortcuts(true)}
+      />
 
-              <div className="flex flex-none items-center gap-1">
-                <button onClick={toggleTheme} className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
-                  {isDarkMode ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={() => setShowKeyboardShortcuts(true)}
-                  className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                  title="Keyboard Shortcuts"
-                >
-                  <span className="text-sm">⌨️</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-2 grid grid-cols-4 gap-2">
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Settings
-              </button>
-              <button
-                onClick={handleSaveProject}
-                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                title="Save project to file (.motionlabs)"
-              >
-                <SaveIcon className="h-3.5 w-3.5" />
-                <span>Save</span>
-              </button>
-              <button
-                onClick={handleLoadProject}
-                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-2 text-[11px] text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                title="Load project from file (.motionlabs)"
-              >
-                <FolderOpenIcon className="h-3.5 w-3.5" />
-                <span>Load</span>
-              </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center justify-center gap-1 rounded bg-blue-600 px-2 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:hover:bg-blue-500"
-              >
-                <DownloadIcon className="h-4 w-4" />
-                <span>Export</span>
-              </button>
-            </div>
-
-            <div className="mt-2 text-[10px] text-gray-500 dark:text-gray-500">v2.3-save-load</div>
+      {isMobile ? (
+        /* ========================= MOBILE LAYOUT ========================= */
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Mobile Tab Bar */}
+          <div className="flex h-10 border-b border-black/30 bg-pp-dark z-10 shrink-0">
+            <button
+              onClick={() => setActiveMobileTab('timeline')}
+              className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'timeline' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => setActiveMobileTab('assets')}
+              className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'assets' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
+            >
+              Project
+            </button>
+            <button
+              onClick={() => setActiveMobileTab('properties')}
+              className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'properties' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
+            >
+              Properties
+            </button>
           </div>
-        ) : (
-          <div className="flex h-12 items-center justify-between gap-4 px-4">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-8 w-8 flex-none items-center justify-center rounded bg-blue-600 shadow-md">
-                <LayersIcon className="text-white" />
-              </div>
-              <h1 className="min-w-0 text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-                Motion <span className="text-blue-600 dark:text-blue-500">Labs</span>
-              </h1>
-            </div>
 
-            <div className="flex flex-none items-center gap-4">
-              <button onClick={toggleTheme} className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
-                {isDarkMode ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={() => setShowKeyboardShortcuts(true)}
-                className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                title="Keyboard Shortcuts"
-              >
-                <span className="text-sm">⌨️</span>
-              </button>
-              <div className="text-xs text-gray-500 dark:text-gray-500">v2.3-save-load</div>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Settings
-              </button>
-              <button
-                onClick={handleSaveProject}
-                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                title="Save project to file (.motionlabs)"
-              >
-                <SaveIcon className="h-3.5 w-3.5" />
-                <span>Save</span>
-              </button>
-              <button
-                onClick={handleLoadProject}
-                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                title="Load project from file (.motionlabs)"
-              >
-                <FolderOpenIcon className="h-3.5 w-3.5" />
-                <span>Load</span>
-              </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center justify-center gap-1 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:hover:bg-blue-500"
-              >
-                <DownloadIcon className="h-4 w-4" />
-                <span>Export</span>
-              </button>
-            </div>
+          {/* Mobile Preview */}
+          <div className="h-[40vh] shrink-0 border-b border-black/30 flex flex-col bg-pp-darkest relative min-w-0">
+            <VideoPreview
+              ref={previewRef}
+              currentTime={project.currentTime}
+              isPlaying={project.isPlaying}
+              elements={project.elements}
+              selectedElementId={project.selectedElementId}
+              onSelectElement={handleSelectElement}
+              onUpdateElement={handleUpdateElement}
+              onTimeUpdate={handleSeek}
+              onDurationChange={handleUpdateDuration}
+              togglePlay={togglePlay}
+              aspectRatio={previewAspectRatio}
+              onAspectRatioChange={applyPreviewAspectRatio}
+            />
           </div>
-        )}
-      </header>
 
-      {/* Mobile Tab Bar */}
-      {isMobile && (
-        <div className="flex h-12 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10 shrink-0">
-          <button
-            onClick={() => setActiveMobileTab('timeline')}
-            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'timeline' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            Timeline
-          </button>
-          <button
-            onClick={() => setActiveMobileTab('assets')}
-            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'assets' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            Assets
-          </button>
-          <button
-            onClick={() => setActiveMobileTab('properties')}
-            className={`flex-1 text-sm font-medium transition-colors ${activeMobileTab === 'properties' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            Properties
-          </button>
-        </div>
-      )}
-
-      {/* Main Workspace */}
-      <div className="flex-1 overflow-hidden">
-        {isMobile ? (
-          <div className="flex h-full flex-col overflow-hidden">
-            <div className="h-[40vh] shrink-0 border-b border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50 dark:bg-gray-950 relative transition-colors min-w-0">
-              <VideoPreview
-                ref={previewRef}
-                currentTime={project.currentTime}
-                isPlaying={project.isPlaying}
-                elements={project.elements}
-                selectedElementId={project.selectedElementId}
-                onSelectElement={handleSelectElement}
-                onUpdateElement={handleUpdateElement}
-                onTimeUpdate={handleSeek}
-                onDurationChange={handleUpdateDuration}
-                togglePlay={togglePlay}
-                aspectRatio={previewAspectRatio}
-                onAspectRatioChange={applyPreviewAspectRatio}
+          {activeMobileTab === 'assets' && (
+            <div className="flex-1 overflow-hidden bg-pp-dark">
+              <AssetsPanel
+                onAddElement={handleAddElement}
+                onUploadMedia={handleUploadMedia}
+                panelWidth={window.innerWidth}
+                onOpenSettings={() => setIsSettingsOpen(true)}
               />
             </div>
+          )}
 
-            {activeMobileTab === 'assets' && (
-              <div className="flex-1 overflow-hidden">
-                <AssetsPanel
-                  onAddElement={handleAddElement}
-                  onUploadMedia={handleUploadMedia}
-                  panelWidth={window.innerWidth}
-                  onOpenSettings={() => setIsSettingsOpen(true)}
-                />
-              </div>
-            )}
-
-            {activeMobileTab === 'properties' && (
-              <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-gray-900">
-                <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 space-x-4">
-                  <button
-                    onClick={() => setActiveRightTab('properties')}
-                    className={`text-sm font-semibold transition-colors ${activeRightTab === 'properties' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                  >
-                    Properties
-                  </button>
-                  <button
-                    onClick={() => setActiveRightTab('color')}
-                    className={`text-sm font-semibold transition-colors ${activeRightTab === 'color' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                  >
-                    Color
-                  </button>
+          {activeMobileTab === 'properties' && (
+            <div className="flex flex-1 flex-col overflow-hidden bg-pp-dark">
+              <div className="h-[28px] border-b border-black/30 bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0">
+                <div
+                  onClick={() => setActiveRightTab('properties')}
+                  className={`pp-panel-tab ${activeRightTab === 'properties' ? 'active' : ''}`}
+                >
+                  Effect Controls
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                  {activeRightTab === 'properties' ? (
-                    <PropertiesPanel
-                      element={selectedElement}
-                      onUpdate={handleUpdateElement}
-                      onDelete={handleDeleteElement}
-                      onSplitAudio={handleSplitAudio}
-                      frameAspectRatio={previewAspectRatio}
-                    />
-                  ) : (
-                    <ColorPanel
-                      element={selectedElement}
-                      onUpdate={handleUpdateElement}
-                    />
-                  )}
+                <div
+                  onClick={() => setActiveRightTab('color')}
+                  className={`pp-panel-tab ${activeRightTab === 'color' ? 'active' : ''}`}
+                >
+                  Lumetri Color
                 </div>
               </div>
-            )}
-
-            {activeMobileTab === 'timeline' && (
-              <div className="flex-1 w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 relative z-40">
-                <Timeline
-                  tracks={project.tracks}
-                  elements={project.elements}
-                  currentTime={project.currentTime}
-                  duration={project.duration}
-                  onSeek={handleSeek}
-                  onSelectElement={handleSelectElement}
-                  onToggleSelectElement={handleToggleSelectElement}
-                  selectedElementId={project.selectedElementId}
-                  selectedElementIds={project.selectedElementIds}
-                  onUpdateElement={handleUpdateElement}
-                  onSplit={handleSplit}
-                  pixelsPerSecond={pixelsPerSecond}
-                  setPixelsPerSecond={setPixelsPerSecond}
-                  onAddAsset={handleAddAssetToTrack}
-                  onInsertTrack={handleInsertTrack}
-                  onDeleteTrack={handleDeleteTrack}
-                  rippleEditMode={rippleEditMode}
-                  onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
-                  snapEnabled={snapEnabled}
-                  onToggleSnap={() => setSnapEnabled(!snapEnabled)}
-                  onCloseGaps={handleCloseGaps}
-                  markers={project.markers}
-                  onAddMarker={handleAddMarker}
-                  onUpdateMarker={handleUpdateMarker}
-                  onDeleteMarker={handleDeleteMarker}
-                  toolMode={toolMode}
-                  setToolMode={setToolMode}
-                  onSplitElement={handleSplitElement}
-                />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex h-full flex-col overflow-hidden">
-            <div ref={desktopWorkspaceRef} className="flex flex-1 overflow-hidden">
-              <div
-                className="relative flex-none overflow-hidden border-r border-gray-200 dark:border-gray-800"
-                style={{ width: `${leftPanelWidth}px` }}
-              >
-                <div className="h-full w-full overflow-hidden">
-                  <AssetsPanel
-                    onAddElement={handleAddElement}
-                    onUploadMedia={handleUploadMedia}
-                    panelWidth={leftPanelWidth}
-                    onOpenSettings={() => setIsSettingsOpen(true)}
+              <div className="flex-1 overflow-y-auto">
+                {activeRightTab === 'properties' ? (
+                  <PropertiesPanel
+                    element={selectedElement}
+                    onUpdate={handleUpdateElement}
+                    onDelete={handleDeleteElement}
+                    onSplitAudio={handleSplitAudio}
+                    frameAspectRatio={previewAspectRatio}
                   />
-                </div>
-                <div
-                  className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
-                  onMouseDown={() => setIsResizingLeft(true)}
-                >
-                  <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
-                </div>
-              </div>
-
-              <div className="min-w-0 flex-1 flex flex-col bg-gray-50 dark:bg-gray-950 relative transition-colors">
-                <VideoPreview
-                  ref={previewRef}
-                  currentTime={project.currentTime}
-                  isPlaying={project.isPlaying}
-                  elements={project.elements}
-                  selectedElementId={project.selectedElementId}
-                  onSelectElement={handleSelectElement}
-                  onUpdateElement={handleUpdateElement}
-                  onTimeUpdate={handleSeek}
-                  onDurationChange={handleUpdateDuration}
-                  togglePlay={togglePlay}
-                  aspectRatio={previewAspectRatio}
-                  onAspectRatioChange={applyPreviewAspectRatio}
-                />
-              </div>
-
-              <div
-                className="relative flex-none overflow-hidden bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 transition-colors"
-                style={{ width: `${rightPanelWidth}px` }}
-              >
-                <div
-                  className="absolute top-0 left-0 bottom-0 w-1 cursor-ew-resize z-30 hover:bg-blue-500/50 transition-colors group"
-                  onMouseDown={() => setIsResizingRight(true)}
-                >
-                  <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
-                </div>
-
-                <div className="flex h-full flex-col">
-                  <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 space-x-4">
-                    <button
-                      onClick={() => setActiveRightTab('properties')}
-                      className={`text-sm font-semibold transition-colors ${activeRightTab === 'properties' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                    >
-                      Properties
-                    </button>
-                    <button
-                      onClick={() => setActiveRightTab('color')}
-                      className={`text-sm font-semibold transition-colors ${activeRightTab === 'color' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-[13px] pt-[15px]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                    >
-                      Color
-                    </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto">
-                    {activeRightTab === 'properties' ? (
-                      <PropertiesPanel
-                        element={selectedElement}
-                        onUpdate={handleUpdateElement}
-                        onDelete={handleDeleteElement}
-                        onSplitAudio={handleSplitAudio}
-                        frameAspectRatio={previewAspectRatio}
-                      />
-                    ) : (
-                      <ColorPanel
-                        element={selectedElement}
-                        onUpdate={handleUpdateElement}
-                      />
-                    )}
-                  </div>
-                </div>
+                ) : (
+                  <ColorPanel
+                    element={selectedElement}
+                    onUpdate={handleUpdateElement}
+                  />
+                )}
               </div>
             </div>
+          )}
 
-            <div
-              className="flex-shrink-0 z-40 relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]"
-              style={{ height: `${timelineHeight}px` }}
-            >
-              <div
-                className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-50 group"
-                onMouseDown={() => setIsResizingTimeline(true)}
-              >
-                <div className="absolute inset-x-0 top-0 h-1 bg-transparent group-hover:bg-blue-500/50 transition-colors" />
-                <div className="absolute left-1/2 top-0 -translate-x-1/2 w-12 h-1 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 transition-colors" />
-              </div>
-
+          {activeMobileTab === 'timeline' && (
+            <div className="flex-1 w-full bg-pp-darkest relative z-40">
               <Timeline
                 tracks={project.tracks}
                 elements={project.elements}
@@ -1729,6 +1508,12 @@ function App() {
                 onAddAsset={handleAddAssetToTrack}
                 onInsertTrack={handleInsertTrack}
                 onDeleteTrack={handleDeleteTrack}
+                onUpdateTrack={(id, updates) => {
+                  setProject(prev => ({
+                    ...prev,
+                    tracks: prev.tracks.map(t => t.id === id ? { ...t, ...updates } : t)
+                  }));
+                }}
                 rippleEditMode={rippleEditMode}
                 onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
                 snapEnabled={snapEnabled}
@@ -1743,9 +1528,220 @@ function App() {
                 onSplitElement={handleSplitElement}
               />
             </div>
+          )}
+        </div>
+      ) : (
+        /* ========================= DESKTOP LAYOUT - PREMIERE PRO ========================= */
+        <div className="flex flex-1 flex-col overflow-hidden bg-black p-[2px] gap-[3px]">
+          {/* Upper workspace: Tools + Panels + Monitors */}
+          <div ref={desktopWorkspaceRef} className="flex flex-1 flex-col overflow-hidden gap-[3px]">
+            {/* Top Row: Source Monitor + Program Monitor */}
+            <div className="flex overflow-hidden w-full gap-[2px]" style={{ flex: '1 1 55%', minHeight: 0 }}>
+              {/* Top Left: Source Monitor Area (Effect Controls, Lumetri Color) */}
+              <div
+                className="flex-none flex flex-col overflow-hidden bg-pp-dark relative"
+                style={{ width: `${topLeftPanelWidth}px` }}
+              >
+                {/* Panel tabs */}
+                <div className="h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30">
+                  <div
+                    onClick={() => setActiveRightTab('source')}
+                    className={`pp-panel-tab ${activeRightTab === 'source' ? 'active' : ''}`}
+                  >
+                    Source: {sourceClip ? sourceClip.name : '(no clip)'}
+                  </div>
+                  <div
+                    onClick={() => setActiveRightTab('properties')}
+                    className={`pp-panel-tab ${activeRightTab === 'properties' ? 'active' : ''}`}
+                  >
+                    Effect Controls
+                  </div>
+                  <div
+                    onClick={() => setActiveRightTab('color')}
+                    className={`pp-panel-tab ${activeRightTab === 'color' ? 'active' : ''}`}
+                  >
+                    Lumetri Color
+                  </div>
+                </div>
+
+                <div className={`flex-1 ${activeRightTab === 'source' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
+                  {activeRightTab === 'source' ? (
+                    <SourceMonitorPanel
+                      clip={sourceClip}
+                      onInsertToTimeline={(clip) => {
+                        handleAddElement(clip.type, { src: clip.src, name: clip.name, assetId: clip.assetId });
+                      }}
+                    />
+                  ) : activeRightTab === 'properties' ? (
+                    <PropertiesPanel
+                      element={selectedElement}
+                      onUpdate={handleUpdateElement}
+                      onDelete={handleDeleteElement}
+                      onSplitAudio={handleSplitAudio}
+                      frameAspectRatio={previewAspectRatio}
+                    />
+                  ) : (
+                    <ColorPanel
+                      element={selectedElement}
+                      onUpdate={handleUpdateElement}
+                    />
+                  )}
+                </div>
+
+                {/* Left resize handle */}
+                <div
+                  className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize z-30 pp-resize-handle"
+                  style={{ left: `${topLeftPanelWidth - 2}px` }}
+                  onMouseDown={() => setIsResizingTopLeft(true)}
+                />
+              </div>
+
+              {/* Top Right: Program Monitor */}
+              <div className="min-w-0 flex-1 flex flex-col bg-pp-darkest relative">
+                {/* Program Monitor tab */}
+                <div className="h-[28px] bg-pp-medium flex items-center px-2 flex-shrink-0 border-b border-black/30">
+                  <div className="pp-panel-tab active">Program Monitor</div>
+                </div>
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  <VideoPreview
+                    ref={previewRef}
+                    currentTime={project.currentTime}
+                    isPlaying={project.isPlaying}
+                    elements={project.elements}
+                    selectedElementId={project.selectedElementId}
+                    onSelectElement={handleSelectElement}
+                    onUpdateElement={handleUpdateElement}
+                    onTimeUpdate={handleSeek}
+                    onDurationChange={handleUpdateDuration}
+                    togglePlay={togglePlay}
+                    aspectRatio={previewAspectRatio}
+                    onAspectRatioChange={applyPreviewAspectRatio}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row: Project + Tools + Timeline + Audio Meters */}
+            <div className="flex overflow-hidden gap-[2px] flex-shrink-0" style={{ height: `${timelineHeight}px` }}>
+
+              {/* Bottom Left: Project Bin / Effects */}
+              <div
+                className="flex-none flex flex-col bg-pp-dark min-h-0 relative"
+                style={{ width: `${bottomLeftPanelWidth}px` }}
+              >
+                {/* Panel tabs */}
+                <div className="h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30 overflow-x-auto no-scrollbar">
+                  <div
+                    onClick={() => setActiveLeftBottomTab('project')}
+                    className={`pp-panel-tab ${activeLeftBottomTab === 'project' ? 'active' : ''}`}
+                  >
+                    Project
+                  </div>
+                  <div
+                    onClick={() => setActiveLeftBottomTab('effects')}
+                    className={`pp-panel-tab ${activeLeftBottomTab === 'effects' ? 'active' : ''}`}
+                  >
+                    Effects
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {activeLeftBottomTab === 'project' ? (
+                    <AssetsPanel
+                      onAddElement={handleAddElement}
+                      onUploadMedia={handleUploadMedia}
+                      onPreviewClip={(clip) => {
+                        setSourceClip(clip);
+                        setActiveRightTab('source');
+                      }}
+                      panelWidth={bottomLeftPanelWidth}
+                      onOpenSettings={() => setIsSettingsOpen(true)}
+                    />
+                  ) : (
+                    <EffectsPanel />
+                  )}
+                </div>
+
+                {/* Left resize handle */}
+                <div
+                  className="absolute top-0 bottom-0 w-1 cursor-ew-resize z-30 pp-resize-handle"
+                  style={{ right: `-2px` }}
+                  onMouseDown={() => setIsResizingBottomLeft(true)}
+                />
+              </div>
+
+              {/* Tools Panel */}
+              <ToolsPanel
+                activeTool={toolMode}
+                onToolChange={(tool) => setToolMode(tool)}
+              />
+
+              {/* Timeline resize handle */}
+              <div
+                className="absolute top-0 left-0 right-0 h-[5px] cursor-ns-resize z-50 pp-resize-handle group"
+                onMouseDown={() => setIsResizingTimeline(true)}
+              >
+                <div className="absolute left-1/2 top-0 -translate-x-1/2 w-16 h-[3px] rounded-full bg-pp-border group-hover:bg-pp-accent transition-colors" />
+              </div>
+
+              {/* Timeline */}
+              <div className="flex-1 min-w-0">
+                <Timeline
+                  tracks={project.tracks}
+                  elements={project.elements}
+                  currentTime={project.currentTime}
+                  duration={project.duration}
+                  onSeek={handleSeek}
+                  onSelectElement={handleSelectElement}
+                  onToggleSelectElement={handleToggleSelectElement}
+                  selectedElementId={project.selectedElementId}
+                  selectedElementIds={project.selectedElementIds}
+                  onUpdateElement={handleUpdateElement}
+                  onSplit={handleSplit}
+                  pixelsPerSecond={pixelsPerSecond}
+                  setPixelsPerSecond={setPixelsPerSecond}
+                  onAddAsset={handleAddAssetToTrack}
+                  onInsertTrack={handleInsertTrack}
+                  onDeleteTrack={handleDeleteTrack}
+                  onUpdateTrack={(id, updates) => {
+                    setProject(prev => ({
+                      ...prev,
+                      tracks: prev.tracks.map(t => t.id === id ? { ...t, ...updates } : t)
+                    }));
+                  }}
+                  rippleEditMode={rippleEditMode}
+                  onToggleRippleEdit={() => setRippleEditMode(!rippleEditMode)}
+                  snapEnabled={snapEnabled}
+                  onToggleSnap={() => setSnapEnabled(!snapEnabled)}
+                  onCloseGaps={handleCloseGaps}
+                  markers={project.markers}
+                  onAddMarker={handleAddMarker}
+                  onUpdateMarker={handleUpdateMarker}
+                  onDeleteMarker={handleDeleteMarker}
+                  toolMode={toolMode}
+                  setToolMode={setToolMode}
+                  onSplitElement={handleSplitElement}
+                />
+              </div>
+
+              {/* Audio Meters */}
+              <div className="flex-none flex flex-col bg-pp-dark min-h-0 relative w-[80px]">
+                <AudioMixerPanel
+                  tracks={project.tracks}
+                  elements={project.elements}
+                  currentTime={project.currentTime}
+                  isPlaying={project.isPlaying}
+                  onUpdateTrack={(id, updates) => {
+                    setProject(prev => ({
+                      ...prev,
+                      tracks: prev.tracks.map(t => t.id === id ? { ...t, ...updates } : t)
+                    }));
+                  }}
+                />
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <KeyboardShortcutsModal
         isOpen={showKeyboardShortcuts}
@@ -1760,6 +1756,6 @@ function App() {
       />
     </div>
   );
-}
+};
 
 export default App;
