@@ -1,5 +1,6 @@
 import React from 'react';
 import { EditorElement, Track, ElementType } from '../../types';
+import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import Waveform from './Waveform';
 
 interface TimelineTrackProps {
@@ -35,14 +36,14 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
 }) => {
   const isAudioTrack = track.type === 'audio';
   const label = trackLabel || track.name;
+  const trackElementCount = elements.filter(element => element.trackId === track.id).length;
 
-  // Derive display name: "Video X" or "Audio X" based on track type
   const getDisplayName = () => {
-    if (track.name?.startsWith('Layer')) {
-      const num = label.replace(/[^0-9]/g, '');
-      return isAudioTrack ? `Audio ${num}` : `Video ${num}`;
+    const numericLabel = label.replace(/[^0-9]/g, '') || `${track.id + 1}`;
+    if (trackElementCount === 0) {
+      return `Layer ${numericLabel}`;
     }
-    return track.name || (isAudioTrack ? `Audio ${label.replace('A', '')}` : `Video ${label.replace('V', '')}`);
+    return isAudioTrack ? `Audio ${numericLabel}` : `Video ${numericLabel}`;
   };
 
   const getClipClass = (type: ElementType) => {
@@ -58,17 +59,20 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
   };
 
   return (
-    <div className="flex h-[40px] border-b border-black/40 relative group/track" style={{ background: '#232323' }}>
+    <div className={`flex border-b border-black/40 relative group/track ${isAudioTrack ? 'h-[58px]' : 'h-[40px]'}`} style={{ background: '#232323' }}>
       {/* Track Header - Premiere Pro style */}
-      <div className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header relative bg-[#1c1c1c] border-r border-[#111111]" style={{ width: '220px' }}>
+      <div
+        className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header relative bg-[#1c1c1c] border-r border-[#111111]"
+        style={{ width: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+      >
 
         {/* Source patch col */}
         <div className="flex flex-col justify-center items-center w-[30px] border-r border-[#2a2a2a] h-full pr-1 shrink-0">
           <button
             className="w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
-            data-tip="Source Patching"
+            data-tip={isAudioTrack ? `Audio source patch ${label}` : `Video source patch ${label}`}
           >
-            {isAudioTrack ? 'A1' : 'V1'}
+            {label}
           </button>
         </div>
 
@@ -190,14 +194,14 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               {/* Audio M/S/Mic */}
               <button
                 className={`w-[16px] h-[16px] bg-transparent border rounded-[1px] flex items-center justify-center text-[9px] font-bold pb-[1px] flex-shrink-0 ${track.isMuted ? 'border-[#e84a4a] text-[#e84a4a] bg-[#e84a4a]/20' : 'border-gray-600 text-gray-500 hover:text-white'}`}
-                data-tip={track.isMuted ? 'Unmute Track' : 'Mute Track'}
+                data-tip={track.isMuted ? 'Unmute audio track' : 'Mute audio track'}
                 onClick={() => onUpdateTrack?.(track.id, { isMuted: !track.isMuted })}
               >
                 M
               </button>
               <button
                 className={`w-[16px] h-[16px] bg-transparent border rounded-[1px] flex items-center justify-center text-[9px] font-bold pb-[1px] flex-shrink-0 ${track.isSoloed ? 'border-[#e8d44a] text-[#e8d44a] bg-[#e8d44a]/20' : 'border-gray-600 text-gray-500 hover:text-white'}`}
-                data-tip={track.isSoloed ? 'Unsolo Track' : 'Solo Track'}
+                data-tip={track.isSoloed ? 'Unsolo audio track' : 'Solo audio track'}
                 onClick={() => onUpdateTrack?.(track.id, { isSoloed: !track.isSoloed })}
               >
                 S
@@ -205,7 +209,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               {/* Microphone icon */}
               <button
                 className="w-[16px] h-[16px] text-gray-500 hover:text-white flex items-center justify-center flex-shrink-0"
-                data-tip="Voice-over Record"
+                data-tip="Voice-over record"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
@@ -221,6 +225,23 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
             </>
           )}
         </div>
+
+        {onDeleteTrack && (
+          <button
+            type="button"
+            onClick={() => onDeleteTrack(track.id)}
+            className="mr-2 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded text-gray-500 transition hover:bg-white/5 hover:text-red-400"
+            data-tip={`Delete ${getDisplayName()} track`}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M19 6v14H5V6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Track Content (Timeline) */}
@@ -241,19 +262,17 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               onMouseDown={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
               onTouchStart={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
             >
-              {/* Audio Waveform - Only show on Audio Tracks */}
+              {/* Audio Waveform - Render the actual visible source section for audio lanes */}
               {isAudioTrack && (el.type === ElementType.AUDIO || el.type === ElementType.VIDEO) && el.props.src && (
-                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-                  <div
-                    style={{
-                      width: `${(el.duration + el.mediaOffset) / el.duration * 100}%`,
-                      height: '100%',
-                      transform: `translateX(-${(el.mediaOffset / (el.duration + el.mediaOffset)) * 100}%)`,
-                      position: 'relative'
-                    }}
-                  >
-                    <Waveform audioUrl={el.props.src} duration={el.duration + el.mediaOffset} color="rgba(255, 255, 255, 0.45)" />
-                  </div>
+                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#35c794]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-white/14" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-black/18" />
+                  <Waveform
+                    audioUrl={el.props.src}
+                    clipDuration={el.duration}
+                    mediaOffset={el.mediaOffset}
+                    color="rgba(6, 76, 60, 0.62)"
+                  />
                 </div>
               )}
 

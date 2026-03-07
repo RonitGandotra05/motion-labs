@@ -3,29 +3,50 @@ import React, { useEffect, useRef, useState } from 'react';
 
 interface WaveformProps {
     audioUrl: string;
-    duration: number; // Duration of the clip in seconds
+    clipDuration: number;
+    mediaOffset?: number;
     color?: string;
     height?: number;
 }
 
-const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = 'rgba(255, 255, 255, 0.65)', height }) => {
+const audioBufferCache = new Map<string, Promise<AudioBuffer>>();
+
+const loadAudioBuffer = async (audioUrl: string) => {
+    const existing = audioBufferCache.get(audioUrl);
+    if (existing) return existing;
+
+    const promise = (async () => {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContextClass();
+
+        try {
+            const response = await fetch(audioUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            return await audioContext.decodeAudioData(arrayBuffer);
+        } finally {
+            audioContext.close().catch(() => { });
+        }
+    })();
+
+    audioBufferCache.set(audioUrl, promise);
+    return promise;
+};
+
+const Waveform: React.FC<WaveformProps> = ({ audioUrl, clipDuration, mediaOffset = 0, color = 'rgba(0, 0, 0, 0.32)', height }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
     const [error, setError] = useState<boolean>(false);
 
-    // Fetch and Decode Audio
     useEffect(() => {
         let isMounted = true;
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
         const fetchAudio = async () => {
             try {
-                const response = await fetch(audioUrl);
-                const arrayBuffer = await response.arrayBuffer();
-                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const decodedBuffer = await loadAudioBuffer(audioUrl);
 
                 if (isMounted) {
                     setAudioBuffer(decodedBuffer);
+                    setError(false);
                 }
             } catch (err) {
                 console.error("Error generating waveform:", err);
@@ -37,11 +58,9 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = 'rgba(2
 
         return () => {
             isMounted = false;
-            audioContext.close();
         };
     }, [audioUrl]);
 
-    // Draw Waveform
     useEffect(() => {
         if (!audioBuffer || !canvasRef.current) return;
 
@@ -49,52 +68,47 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = 'rgba(2
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Set canvas dimensions based on container
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
+        const renderHeight = height || rect.height;
+        const renderWidth = Math.max(1, Math.floor(rect.width));
+        const centerY = renderHeight / 2;
+        const sourceDuration = audioBuffer.duration || 0;
+        const safeClipDuration = Math.max(clipDuration, 0.01);
+        const clampedOffset = Math.max(0, Math.min(mediaOffset, Math.max(sourceDuration - 0.01, 0)));
+        const endTime = Math.min(sourceDuration, clampedOffset + safeClipDuration);
+        const startSample = Math.floor(clampedOffset * audioBuffer.sampleRate);
+        const endSample = Math.min(audioBuffer.length, Math.ceil(endTime * audioBuffer.sampleRate));
+        const visibleSamples = Math.max(1, endSample - startSample);
+        const samplesPerPixel = Math.max(1, Math.floor(visibleSamples / renderWidth));
+        const channelData = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) => audioBuffer.getChannelData(index));
 
-        // We want the canvas to be the full width of the container (which represents the full duration)
-        // Resolution: 100 samples per visual pixel usually enough
-        canvas.width = rect.width * dpr;
-        canvas.height = (height || rect.height) * dpr;
+        canvas.width = renderWidth * dpr;
+        canvas.height = renderHeight * dpr;
 
-        ctx.scale(dpr, dpr);
-        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, renderWidth, renderHeight);
 
-        // Styling
         ctx.fillStyle = color;
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = 1;
+        ctx.fillRect(0, centerY, renderWidth, 1);
 
-        const amp = (height || rect.height) / 2;
+        for (let x = 0; x < renderWidth; x++) {
+            const chunkStart = startSample + (x * samplesPerPixel);
+            const chunkEnd = Math.min(endSample, chunkStart + samplesPerPixel);
+            let peak = 0;
 
-        // Draw Center Horizontal Line
-        ctx.fillRect(0, amp, rect.width, 1);
-
-        // Draw Logic
-        const data = audioBuffer.getChannelData(0); // Use first channel
-        const step = Math.ceil(data.length / rect.width);
-
-
-        for (let i = 0; i < rect.width; i++) {
-            let min = 1.0;
-            let max = -1.0;
-
-            // Find max/min in this chunk (pixel)
-            for (let j = 0; j < step; j++) {
-                const datum = data[(i * step) + j];
-                if (datum < min) min = datum;
-                if (datum > max) max = datum;
+            for (let sampleIndex = chunkStart; sampleIndex < chunkEnd; sampleIndex++) {
+                for (const channel of channelData) {
+                    const amplitude = Math.abs(channel[sampleIndex] || 0);
+                    if (amplitude > peak) peak = amplitude;
+                }
             }
 
-            // Draw bar
-            // Center the waveform vertically
-            const y = (1 + min) * amp;
-            const h = Math.max(1, (max - min) * amp);
-
-            ctx.fillRect(i, y, 1, h);
+            const barHeight = Math.max(1.5, peak * (renderHeight * 0.48));
+            ctx.fillRect(x, centerY - barHeight, 1, barHeight * 2);
         }
-
-    }, [audioBuffer, color, height]);
+    }, [audioBuffer, clipDuration, color, height, mediaOffset]);
 
     if (error) return null;
 

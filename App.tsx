@@ -13,12 +13,13 @@ import MenuBar from './components/ui/MenuBar';
 import ToolsPanel from './components/ui/ToolsPanel';
 import type { ToolMode } from './components/ui/ToolsPanel';
 import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker } from './types';
-import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT } from './constants';
+import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT, TIMELINE_TRACK_HEADER_WIDTH } from './constants';
 import { getAssetById, getAssets, saveProjectState, loadProjectState } from './utils/db';
 import { saveProjectToFile, openProjectFilePicker } from './utils/projectFile';
 import { historyManager, HistoryState } from './utils/history';
 import KeyboardShortcutsModal from './components/ui/KeyboardShortcutsModal';
 import ExportModal from './components/ui/ExportModal';
+import { exportProjectVideo, getExportPresets, getSupportedExportFormats, type ExportOptions } from './utils/exportVideo';
 
 const OLD_STORAGE_KEY = 'reactframe_project'; // For migration from localStorage
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
@@ -27,6 +28,7 @@ function App() {
   const MIN_SIDE_PANEL_WIDTH = 240;
   const MAX_SIDE_PANEL_WIDTH = 520;
   const MIN_PREVIEW_WIDTH = 360;
+  const MIN_TIMELINE_CONTENT_WIDTH = TIMELINE_TRACK_HEADER_WIDTH + 360;
   const MIN_TIMELINE_HEIGHT = 180;
   const MIN_WORKSPACE_HEIGHT = 240;
 
@@ -61,6 +63,8 @@ function App() {
   const [toolMode, setToolMode] = useState<ToolMode>('pointer');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
+  const exportPresets = getExportPresets();
+  const supportedExportFormats = getSupportedExportFormats();
 
   const parseAspectRatio = (ratio: string) => {
     const [width, height] = ratio.split(':').map(Number);
@@ -133,6 +137,57 @@ function App() {
     }));
   }, []);
 
+  const resetSelectedMediaToFrame = useCallback((ratio?: string) => {
+    const targetRatio = parseAspectRatio(ratio || previewAspectRatio);
+
+    setProject(prev => ({
+      ...prev,
+      elements: prev.elements.map(el => {
+        if (
+          el.id !== prev.selectedElementId ||
+          (el.type !== ElementType.VIDEO && el.type !== ElementType.IMAGE) ||
+          !el.props.sourceAspectRatio
+        ) {
+          return el;
+        }
+
+        const layout = getMediaFrameLayout(
+          el.props.sourceAspectRatio,
+          targetRatio,
+          el.props.mediaFitMode
+        );
+
+        return {
+          ...el,
+          x: layout.x,
+          y: layout.y,
+          width: layout.width,
+          height: layout.height,
+          rotation: 0
+        };
+      })
+    }));
+  }, [previewAspectRatio]);
+
+  const normalizeTrackTypes = useCallback((tracks: Track[]) => {
+    const normalizedTracks = tracks.map(track => ({
+      ...track,
+      type: track.type === 'overlay' ? 'video' : track.type
+    }));
+
+    const videoTracks = normalizedTracks.filter(track => track.type === 'video').sort((a, b) => a.id - b.id);
+    const audioTracks = normalizedTracks.filter(track => track.type === 'audio').sort((a, b) => a.id - b.id);
+    const videoNameMap = new Map(videoTracks.map((track, index) => [track.id, `Video ${index + 1}`]));
+    const audioNameMap = new Map(audioTracks.map((track, index) => [track.id, `Audio ${index + 1}`]));
+
+    return normalizedTracks.map(track => ({
+      ...track,
+      name: track.type === 'audio'
+        ? (audioNameMap.get(track.id) || track.name)
+        : (videoNameMap.get(track.id) || track.name)
+    }));
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 600);
     window.addEventListener('resize', handleResize);
@@ -145,7 +200,7 @@ function App() {
     isPlaying: false,
     zoomLevel: 1,
     elements: [],
-    tracks: DEFAULT_TRACKS,
+    tracks: normalizeTrackTypes(DEFAULT_TRACKS),
     markers: [], // Timeline markers
     selectedElementId: null,
     selectedElementIds: [],
@@ -199,7 +254,7 @@ function App() {
           setProject(prev => ({
             ...prev,
             elements: restoredElements,
-            tracks: data.tracks.length > 0 ? data.tracks : DEFAULT_TRACKS
+            tracks: normalizeTrackTypes(data.tracks.length > 0 ? data.tracks : DEFAULT_TRACKS)
           }));
         }
       } catch (e) {
@@ -294,7 +349,7 @@ function App() {
         }
 
         if (isResizingBottomLeft) {
-          const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+          const maxLeftWidth = workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH;
           const newWidth = clamp(e.clientX - workspaceRect.left, MIN_SIDE_PANEL_WIDTH, maxLeftWidth);
           setBottomLeftPanelWidth(newWidth);
         }
@@ -342,9 +397,10 @@ function App() {
       if (workspaceRect) {
         const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
         const maxRightWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+        const maxBottomLeftWidth = workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH;
 
         setTopLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
-        setBottomLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
+        setBottomLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxBottomLeftWidth));
         setRightPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxRightWidth));
       }
 
@@ -437,7 +493,6 @@ function App() {
         'v': 'pointer',
         'a': 'track-select',
         'b': 'ripple-edit',
-        'c': 'blade',
         'y': 'slip',
         'u': 'slide',
         'n': 'roll',
@@ -448,6 +503,12 @@ function App() {
         't': 'type',
       };
       const toolKey = e.key.toLowerCase();
+      if (toolKey === 'c' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        handleSplit();
+        setToolMode('pointer');
+        return;
+      }
       if (toolShortcuts[toolKey] && !e.metaKey && !e.ctrlKey) {
         setToolMode(toolShortcuts[toolKey]);
         return;
@@ -525,22 +586,11 @@ function App() {
         e.preventDefault();
         saveToHistory();
 
-        // Group aware delete
-        const selectedEl = project.elements.find(el => el.id === project.selectedElementId);
-        const idsToDelete = [project.selectedElementId];
-
-        if (selectedEl && selectedEl.groupId) {
-          project.elements.forEach(el => {
-            if (el.groupId === selectedEl.groupId) {
-              idsToDelete.push(el.id);
-            }
-          });
-        }
-
         setProject(prev => ({
           ...prev,
-          elements: prev.elements.filter(el => !idsToDelete.includes(el.id)),
-          selectedElementId: null
+          elements: prev.elements.filter(el => el.id !== project.selectedElementId),
+          selectedElementId: null,
+          selectedElementIds: []
         }));
         return;
       }
@@ -744,8 +794,90 @@ function App() {
     }
   };
 
+  const loadVideoMetadata = (src: string): Promise<{ duration: number | null; width: number | null; height: number | null; hasAudio: boolean }> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        const hasAudio =
+          Boolean((video as any).mozHasAudio) ||
+          (((video as any).webkitAudioDecodedByteCount ?? 0) > 0) ||
+          (((video as any).audioTracks?.length ?? 0) > 0);
+
+        resolve({
+          duration: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null,
+          width: video.videoWidth || null,
+          height: video.videoHeight || null,
+          hasAudio
+        });
+      };
+
+      video.preload = 'metadata';
+      video.muted = true;
+      video.src = src;
+      video.onloadedmetadata = finish;
+      video.oncanplay = finish;
+      video.onerror = finish;
+      setTimeout(finish, 4000);
+    });
+  };
+
+  const createTrackRecord = (id: number, type: Track['type']): Track => ({
+    id,
+    name: type === 'audio' ? 'Audio' : 'Video',
+    isVisible: true,
+    isLocked: false,
+    type
+  });
+
+  const isTrackTypeCompatible = (track: Track, desiredType: Track['type']) => {
+    if (desiredType === 'audio') return track.type === 'audio';
+    return track.type !== 'audio';
+  };
+
+  const findAvailableTrackId = (
+    tracks: Track[],
+    elements: EditorElement[],
+    desiredType: Track['type'],
+    startTime: number,
+    duration: number,
+    preferredTrackId?: number
+  ) => {
+    const endTime = startTime + duration;
+
+    if (preferredTrackId !== undefined) {
+      const preferredTrack = tracks.find(track => track.id === preferredTrackId);
+      if (preferredTrack && isTrackTypeCompatible(preferredTrack, desiredType)) {
+        return preferredTrackId;
+      }
+    }
+
+    const compatibleTracks = [...tracks]
+      .filter(track => isTrackTypeCompatible(track, desiredType))
+      .sort((a, b) => a.id - b.id);
+
+    for (const track of compatibleTracks) {
+      const hasOverlap = elements.some(el =>
+        el.trackId === track.id &&
+        (el.startTime < endTime && (el.startTime + el.duration) > startTime)
+      );
+
+      if (!hasOverlap) {
+        return track.id;
+      }
+    }
+
+    return null;
+  };
+
   const handleAddElement = async (type: ElementType, customProps?: any, overrideTrackId?: number, overrideStartTime?: number) => {
     const id = Math.random().toString(36).substr(2, 9);
+    const startTime = overrideStartTime !== undefined ? overrideStartTime : project.currentTime;
+    const tracksSnapshot = [...project.tracks].sort((a, b) => a.id - b.id);
+    const elementsSnapshot = [...project.elements];
 
     let defaultProps: ElementProps = {};
     let width = 20;
@@ -793,58 +925,29 @@ function App() {
         break;
     }
 
-    // Smart Track Logic
-    let trackId = 0;
-
-    if (overrideTrackId !== undefined) {
-      trackId = overrideTrackId;
-    } else {
-      // Find free track
-      const startTime = overrideStartTime !== undefined ? overrideStartTime : project.currentTime;
-      const endTime = startTime + duration;
-
-      let foundTrackId = -1;
-      // Sort tracks by ID to check sequentially
-      const sortedTracks = [...project.tracks].sort((a, b) => a.id - b.id);
-
-      for (const track of sortedTracks) {
-        // Check for overlap on this track
-        const hasOverlap = project.elements.some(el =>
-          el.trackId === track.id &&
-          // Check intersection: (StartA < EndB) and (EndA > StartB)
-          (el.startTime < endTime && (el.startTime + el.duration) > startTime)
+    let videoHasAudio = false;
+    if (type === ElementType.VIDEO && customProps?.src) {
+      const metadata = await loadVideoMetadata(customProps.src);
+      if (metadata.duration) duration = metadata.duration;
+      if (metadata.width && metadata.height) {
+        const sourceAspectRatio = metadata.width / metadata.height;
+        const layout = getMediaFrameLayout(
+          sourceAspectRatio,
+          parseAspectRatio(previewAspectRatio),
+          defaultProps.mediaFitMode
         );
-
-        if (!hasOverlap) {
-          foundTrackId = track.id;
-          break;
-        }
-      }
-
-      if (foundTrackId !== -1) {
-        trackId = foundTrackId;
-      } else {
-        // Create new track if all existing ones are occupied
-        const maxId = sortedTracks.length > 0 ? Math.max(...sortedTracks.map(t => t.id)) : -1;
-        const newTrackId = maxId + 1;
-        const newTrack: Track = {
-          id: newTrackId,
-          name: `Layer ${newTrackId + 1}`,
-          isVisible: true,
-          isLocked: false,
-          type: 'overlay'
+        width = layout.width;
+        height = layout.height;
+        defaultProps = {
+          ...defaultProps,
+          sourceWidth: metadata.width,
+          sourceHeight: metadata.height,
+          sourceAspectRatio,
+          mediaZoom: 1
         };
-
-        // We need to update state immediately to reflect new track
-        setProject(prev => ({
-          ...prev,
-          tracks: [...prev.tracks, newTrack]
-        }));
-        trackId = newTrackId;
       }
-    }
-
-    if ((type === ElementType.VIDEO || type === ElementType.IMAGE) && customProps?.src) {
+      videoHasAudio = customProps?.forceLinkedAudio ?? true;
+    } else if (type === ElementType.IMAGE && customProps?.src) {
       const dimensions = await loadMediaDimensions(customProps.src, type);
       if (dimensions?.width && dimensions?.height) {
         const sourceAspectRatio = dimensions.width / dimensions.height;
@@ -864,21 +967,26 @@ function App() {
           mediaZoom: 1
         };
       }
-    }
-
-    if ((type === ElementType.VIDEO || type === ElementType.AUDIO) && customProps?.src) {
+    } else if (type === ElementType.AUDIO && customProps?.src) {
       const mediaDuration = await loadMediaDuration(customProps.src, type);
-      if (mediaDuration) {
-        duration = mediaDuration;
-      }
+      if (mediaDuration) duration = mediaDuration;
     }
 
-    const newElement: EditorElement = {
+    const desiredTrackType: Track['type'] = type === ElementType.AUDIO ? 'audio' : 'video';
+    let trackId = findAvailableTrackId(tracksSnapshot, elementsSnapshot, desiredTrackType, startTime, duration, overrideTrackId);
+    const tracksToAdd: Track[] = [];
+
+    if (trackId === null) {
+      trackId = (tracksSnapshot.length > 0 ? Math.max(...tracksSnapshot.map(t => t.id)) : -1) + 1;
+      tracksToAdd.push(createTrackRecord(trackId, desiredTrackType));
+    }
+
+    const newElements: EditorElement[] = [{
       id,
       type,
       trackId,
       name,
-      startTime: overrideStartTime !== undefined ? overrideStartTime : project.currentTime,
+      startTime,
       duration,
       mediaOffset: 0,
       x: type === ElementType.VIDEO || type === ElementType.IMAGE ? (100 - width) / 2 : 50 - (width / 2),
@@ -886,17 +994,67 @@ function App() {
       width,
       height,
       rotation: 0,
-      zIndex: project.elements.length, // New elements on top
+      zIndex: project.elements.length,
       lockAspectRatio: type === ElementType.VIDEO || type === ElementType.IMAGE,
       props: defaultProps,
       ...(customProps?.assetId && { assetId: customProps.assetId })
-    } as EditorElement;
+    } as EditorElement];
+
+    if (type === ElementType.VIDEO && customProps?.src && videoHasAudio) {
+      let audioTrackId = findAvailableTrackId(
+        [...tracksSnapshot, ...tracksToAdd],
+        [...elementsSnapshot, ...newElements],
+        'audio',
+        startTime,
+        duration
+      );
+
+      if (audioTrackId === null) {
+        audioTrackId = ([...tracksSnapshot, ...tracksToAdd].length > 0 ? Math.max(...[...tracksSnapshot, ...tracksToAdd].map(t => t.id)) : -1) + 1;
+        tracksToAdd.push(createTrackRecord(audioTrackId, 'audio'));
+      }
+
+      const groupId = Math.random().toString(36).substr(2, 9);
+      newElements[0] = {
+        ...newElements[0],
+        groupId,
+        props: {
+          ...newElements[0].props,
+          isMuted: true
+        }
+      };
+
+      newElements.push({
+        id: Math.random().toString(36).substr(2, 9),
+        type: ElementType.AUDIO,
+        trackId: audioTrackId,
+        name: `${name} (Audio)`,
+        startTime,
+        duration,
+        mediaOffset: 0,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        rotation: 0,
+        zIndex: project.elements.length + 1,
+        groupId,
+        props: {
+          src: customProps.src,
+          volume: 1,
+          isMuted: false
+        },
+        ...(customProps?.assetId && { assetId: customProps.assetId })
+      });
+    }
 
     setProject(prev => ({
       ...prev,
-      duration: Math.max(prev.duration, newElement.startTime + newElement.duration),
-      elements: [...prev.elements, newElement],
-      selectedElementId: id
+      tracks: tracksToAdd.length > 0 ? normalizeTrackTypes([...prev.tracks, ...tracksToAdd].sort((a, b) => a.id - b.id)) : prev.tracks,
+      duration: Math.max(prev.duration, ...newElements.map(element => element.startTime + element.duration)),
+      elements: [...prev.elements, ...newElements],
+      selectedElementId: newElements[0].id,
+      selectedElementIds: newElements[0].groupId ? newElements.map(element => element.id) : [newElements[0].id]
     }));
   };
 
@@ -943,7 +1101,8 @@ function App() {
     setProject(prev => ({
       ...prev,
       elements: prev.elements.filter(el => el.id !== id),
-      selectedElementId: null
+      selectedElementId: null,
+      selectedElementIds: []
     }));
   };
 
@@ -975,11 +1134,11 @@ function App() {
             duration: rightDuration,
             mediaOffset: el.mediaOffset + leftDuration,
             name: el.name + " (Copy)",
-            groupId: undefined // Split parts shouldn't inherit group? Or should they? Maybe undefined for safety.
+            groupId: undefined
           };
 
           const index = newElements.findIndex(e => e.id === el.id);
-          newElements[index] = { ...el, duration: leftDuration };
+          newElements[index] = { ...el, duration: leftDuration, groupId: undefined };
           newElements.push(rightPart);
         }
       });
@@ -1015,11 +1174,16 @@ function App() {
         groupId: undefined
       };
 
-      const newElements = prev.elements.map(e => e.id === el.id ? { ...e, duration: leftDuration } : e);
+      const newElements = prev.elements.map(e => e.id === el.id ? { ...e, duration: leftDuration, groupId: undefined } : e);
       newElements.push(rightPart);
       return { ...prev, elements: newElements };
     });
   }, [saveToHistory]);
+
+  const handleBladeAction = useCallback(() => {
+    handleSplit();
+    setToolMode('pointer');
+  }, [handleSplit]);
 
   // Split Audio from Video - extracts audio to a new track below the video
   const handleSplitAudio = (videoElementId: string) => {
@@ -1056,7 +1220,7 @@ function App() {
       const newLayerNumber = prev.tracks.length + 1;
       const newAudioTrack: Track = {
         id: newAudioTrackId,
-        name: `Layer ${newLayerNumber}`,
+        name: `Audio ${newLayerNumber}`,
         isVisible: true,
         isLocked: false,
         type: 'audio'
@@ -1142,10 +1306,10 @@ function App() {
       const newLayerNumber = prev.tracks.length + 1;
       const newTrack: Track = {
         id: newTrackId,
-        name: `Layer ${newLayerNumber}`,
+        name: `Video ${newLayerNumber}`,
         isVisible: true,
         isLocked: false,
-        type: 'overlay'
+        type: 'video'
       };
 
       // Insert the new track
@@ -1154,7 +1318,7 @@ function App() {
 
       return {
         ...prev,
-        tracks: updatedTracks,
+        tracks: normalizeTrackTypes(updatedTracks),
         elements: updatedElements
       };
     });
@@ -1198,7 +1362,7 @@ function App() {
 
       return {
         ...prev,
-        tracks: updatedTracks,
+        tracks: normalizeTrackTypes(updatedTracks),
         elements: updatedElements,
         selectedElementId: null
       };
@@ -1255,6 +1419,25 @@ function App() {
     });
   };
 
+  const handleCloseGap = (trackId: number, gapStart: number, gapEnd: number) => {
+    const gapDuration = Math.max(0, gapEnd - gapStart);
+    if (gapDuration <= 0) return;
+
+    saveToHistory();
+    setProject(prev => ({
+      ...prev,
+      elements: prev.elements.map(el => {
+        if (el.trackId !== trackId || el.startTime < gapEnd) {
+          return el;
+        }
+        return {
+          ...el,
+          startTime: Math.max(gapStart, el.startTime - gapDuration)
+        };
+      })
+    }));
+  };
+
   // Timeline Markers Handlers
   const handleAddMarker = (time: number) => {
     const newMarker: Marker = {
@@ -1290,41 +1473,29 @@ function App() {
     setIsExportModalOpen(true);
   };
 
-  const startExport = async (filename: string, fps: number) => {
-    setIsExportModalOpen(false);
-    if (!previewRef.current) return;
-
-    // Safety check just in case modal didn't close or something
-    if (!confirm(`Start recording playback for "${filename}" at ${fps} FPS? The video will play from start to finish.`)) return;
+  const startExport = async (options: ExportOptions) => {
+    if (supportedExportFormats.length === 0) {
+      alert('This browser does not support video export with MediaRecorder.');
+      return;
+    }
 
     try {
-      setProject(prev => ({ ...prev, currentTime: 0, isPlaying: true }));
-      const stream = previewRef.current.captureStream(fps);
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-
-      const chunks: BlobPart[] = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${filename}.webm`;
-        a.click();
-        setProject(prev => ({ ...prev, isPlaying: false }));
-      };
-
-      mediaRecorder.start();
-      setTimeout(() => {
-        mediaRecorder.stop();
-      }, project.duration * 1000);
-
-    } catch (e) {
-      console.error(e);
-      alert("Browser does not support capturing this stream directly.");
+      setProject(prev => ({ ...prev, isExporting: true, isPlaying: false, currentTime: 0 }));
+      await exportProjectVideo({
+        elements: project.elements,
+        duration: project.duration,
+        aspectRatio: previewAspectRatio,
+        options,
+        onProgress: (currentTime) => {
+          setProject(prev => ({ ...prev, currentTime }));
+        }
+      });
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Export failed.');
+    } finally {
+      setProject(prev => ({ ...prev, isExporting: false, isPlaying: false }));
     }
   };
 
@@ -1371,7 +1542,7 @@ function App() {
         setProject(prev => ({
           ...prev,
           elements: loadedProject.elements,
-          tracks: loadedProject.tracks.length > 0 ? loadedProject.tracks : DEFAULT_TRACKS,
+          tracks: normalizeTrackTypes(loadedProject.tracks.length > 0 ? loadedProject.tracks : DEFAULT_TRACKS),
           markers: loadedProject.markers || [],
           selectedElementId: null,
           currentTime: 0
@@ -1438,6 +1609,7 @@ function App() {
               togglePlay={togglePlay}
               aspectRatio={previewAspectRatio}
               onAspectRatioChange={applyPreviewAspectRatio}
+              onResetSelectedMediaToFrame={resetSelectedMediaToFrame}
               duration={project.duration}
             />
           </div>
@@ -1518,6 +1690,7 @@ function App() {
                 snapEnabled={snapEnabled}
                 onToggleSnap={() => setSnapEnabled(!snapEnabled)}
                 onCloseGaps={handleCloseGaps}
+                onCloseGap={handleCloseGap}
                 markers={project.markers}
                 onAddMarker={handleAddMarker}
                 onUpdateMarker={handleUpdateMarker}
@@ -1615,6 +1788,7 @@ function App() {
                     togglePlay={togglePlay}
                     aspectRatio={previewAspectRatio}
                     onAspectRatioChange={applyPreviewAspectRatio}
+                    onResetSelectedMediaToFrame={resetSelectedMediaToFrame}
                     duration={project.duration}
                   />
                 </div>
@@ -1672,7 +1846,13 @@ function App() {
               {/* Tools Panel */}
               <ToolsPanel
                 activeTool={toolMode}
-                onToolChange={(tool) => setToolMode(tool)}
+                onToolChange={(tool) => {
+                  if (tool === 'blade') {
+                    handleBladeAction();
+                    return;
+                  }
+                  setToolMode(tool);
+                }}
               />
 
               {/* Timeline resize handle */}
@@ -1713,6 +1893,7 @@ function App() {
                   snapEnabled={snapEnabled}
                   onToggleSnap={() => setSnapEnabled(!snapEnabled)}
                   onCloseGaps={handleCloseGaps}
+                  onCloseGap={handleCloseGap}
                   markers={project.markers}
                   onAddMarker={handleAddMarker}
                   onUpdateMarker={handleUpdateMarker}
@@ -1753,6 +1934,10 @@ function App() {
         onClose={() => setIsExportModalOpen(false)}
         onExport={startExport}
         duration={project.duration}
+        aspectRatio={previewAspectRatio}
+        formats={supportedExportFormats}
+        presets={exportPresets}
+        isExporting={project.isExporting}
       />
     </div>
   );

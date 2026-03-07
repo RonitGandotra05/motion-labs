@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Track, EditorElement, Marker } from '../../types';
+import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import TimelineTrack from './TimelineTrack';
 import { MousePointerIcon, ScissorsIcon, SlipIcon, RollIcon, ZoomInIcon, ZoomOutIcon, MagnetIcon, CompressIcon, FitIcon } from '../ui/Icons';
 
@@ -27,6 +28,7 @@ interface TimelineProps {
   snapEnabled?: boolean;
   onToggleSnap?: () => void;
   onCloseGaps?: () => void;
+  onCloseGap?: (trackId: number, gapStart: number, gapEnd: number) => void;
   markers?: Marker[];
   onAddMarker?: (time: number) => void;
   onUpdateMarker?: (id: string, updates: Partial<Marker>) => void;
@@ -64,6 +66,7 @@ const Timeline: React.FC<TimelineProps> = ({
   snapEnabled = true,
   onToggleSnap,
   onCloseGaps,
+  onCloseGap,
   markers = [],
   onAddMarker,
   onUpdateMarker,
@@ -92,6 +95,10 @@ const Timeline: React.FC<TimelineProps> = ({
 
   // Snap indicator state
   const [snapIndicator, setSnapIndicator] = useState<{ time: number } | null>(null);
+  const [gapContextMenu, setGapContextMenu] = useState<{ x: number; y: number; trackId: number; gapStart: number; gapEnd: number } | null>(null);
+  const [selectedGap, setSelectedGap] = useState<{ trackId: number; gapStart: number; gapEnd: number } | null>(null);
+
+  const getTrackRowHeight = (track: Track) => track.type === 'audio' ? 58 : 40;
 
   // Helper: Find all snap points
   const findSnapPoints = useCallback((excludeElementId: string): number[] => {
@@ -141,7 +148,7 @@ const Timeline: React.FC<TimelineProps> = ({
     if (!rulerRef.current) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
     const rect = rulerRef.current.getBoundingClientRect();
-    const x = clientX - rect.left - 220;
+    const x = clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
     const newTime = Math.max(0, x / pixelsPerSecond);
     onSeek(newTime);
   };
@@ -342,7 +349,7 @@ const Timeline: React.FC<TimelineProps> = ({
     const assetId = e.dataTransfer.getData('application/react-frame-asset-id');
     if (assetId && onAddAsset) {
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left - 220;
+      const x = e.clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
       const dropTime = Math.max(0, x / pixelsPerSecond);
       onAddAsset(assetId, trackId, dropTime);
     }
@@ -415,9 +422,17 @@ const Timeline: React.FC<TimelineProps> = ({
   const videoTracks = tracks.filter(t => t.type !== 'audio');
   const audioTracks = tracks.filter(t => t.type === 'audio');
   const orderedTracks = [...videoTracks.reverse(), ...audioTracks]; // V tracks reversed so V1 is at bottom
+  const totalTrackHeight = orderedTracks.reduce((sum, track) => sum + getTrackRowHeight(track), 0);
 
   return (
-    <div className="flex flex-col h-full bg-pp-darkest text-pp-text select-none" ref={containerRef}>
+    <div
+      className="flex flex-col h-full bg-pp-darkest text-pp-text select-none"
+      ref={containerRef}
+      onClick={() => {
+        setGapContextMenu(null);
+        setSelectedGap(null);
+      }}
+    >
 
       {/* Timeline Header Tab Bar - Premiere Pro style */}
       <div className="h-[28px] border-b border-[#111111] bg-[#232323] flex items-end px-2 justify-between flex-shrink-0 relative z-10 w-full">
@@ -432,6 +447,15 @@ const Timeline: React.FC<TimelineProps> = ({
 
         {/* Essential right-side Timeline display tools (zoom) */}
         <div className="flex items-center space-x-1 pb-1">
+          {onCloseGaps && (
+            <button
+              onClick={onCloseGaps}
+              className="pp-btn mr-2 h-[20px] px-2 py-0 text-[10px]"
+              data-tip="Delete All Gaps"
+            >
+              Delete Gaps
+            </button>
+          )}
           <button onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
             <ZoomOutIcon className="w-3 h-3" />
           </button>
@@ -443,7 +467,7 @@ const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       <div className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
-        <div className="relative min-w-full" style={{ width: `${totalWidth + 220}px` }}>
+        <div className="relative min-w-full" style={{ width: `${totalWidth + TIMELINE_TRACK_HEADER_WIDTH}px` }}>
 
           {/* Ruler - Premiere Pro style */}
           <div
@@ -454,14 +478,18 @@ const Timeline: React.FC<TimelineProps> = ({
             onDoubleClick={(e) => {
               if (onAddMarker && rulerRef.current) {
                 const rect = rulerRef.current.getBoundingClientRect();
-                const x = e.clientX - rect.left - 220;
+                const x = e.clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
                 const time = Math.max(0, x / pixelsPerSecond);
                 onAddMarker(time);
               }
             }}
           >
             {/* Top-Left Fixed Timecode Block */}
-            <div className="w-[220px] h-full border-r border-black/40 absolute left-0 bg-[#1c1c1c] z-20 flex flex-col justify-center px-4 pt-1 cursor-default" onMouseDown={e => e.stopPropagation()}>
+            <div
+              className="h-full border-r border-black/40 absolute left-0 bg-[#1c1c1c] z-20 flex flex-col justify-center px-4 pt-1 cursor-default"
+              style={{ width: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+              onMouseDown={e => e.stopPropagation()}
+            >
               <div className="text-[#4e9fd5] font-pp-mono text-[16px] tracking-wider mb-2">
                 {formatTimecode(currentTime)}
               </div>
@@ -484,7 +512,9 @@ const Timeline: React.FC<TimelineProps> = ({
                 </button>
                 {/* 4. Marker */}
                 <button onClick={() => onAddMarker && onAddMarker(currentTime)} data-tip="Add Marker (M)" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L3 22h18L12 2z" /></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-3-6 3V5a1 1 0 0 1 1-1z" />
+                  </svg>
                 </button>
                 {/* 5. Wrench */}
                 <button data-tip="Timeline Display Settings" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
@@ -493,7 +523,10 @@ const Timeline: React.FC<TimelineProps> = ({
               </div>
             </div>
 
-            <div className="absolute left-[220px] right-0 bottom-0 h-[24px]">
+            <div
+              className="absolute right-0 bottom-0 h-[24px]"
+              style={{ left: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+            >
               {rulerTicks}
               {/* Markers */}
               {markers.map(marker => (
@@ -533,7 +566,7 @@ const Timeline: React.FC<TimelineProps> = ({
             {/* Playhead */}
             <div
               className="absolute top-0 w-px bg-pp-playhead z-30 pointer-events-none"
-              style={{ left: `${(currentTime * pixelsPerSecond) + 220}px`, height: `${tracks.length * 40}px` }}
+              style={{ left: `${(currentTime * pixelsPerSecond) + TIMELINE_TRACK_HEADER_WIDTH}px`, height: `${totalTrackHeight}px` }}
             >
               {/* Red triangle at top */}
               <div className="absolute -top-[10px] left-1/2 -translate-x-1/2 w-0 h-0"
@@ -548,18 +581,36 @@ const Timeline: React.FC<TimelineProps> = ({
             {snapIndicator && (
               <div
                 className="absolute top-0 w-0.5 bg-green-400 z-40 pointer-events-none"
-                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + 220}px`, height: `${tracks.length * 40}px` }}
+                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + TIMELINE_TRACK_HEADER_WIDTH}px`, height: `${totalTrackHeight}px` }}
               >
                 <div className="w-2 h-2 bg-green-400 rounded-full transform -translate-x-1/2 absolute top-0" />
               </div>
             )}
 
-            {orderedTracks.map((track, index) => (
+            {orderedTracks.map((track, index) => {
+              const trackElements = elements
+                .filter(el => el.trackId === track.id)
+                .sort((a, b) => a.startTime - b.startTime);
+              const gaps = [
+                ...(trackElements.length > 0 && trackElements[0].startTime > 0.05
+                  ? [{ gapStart: 0, gapEnd: trackElements[0].startTime }]
+                  : []),
+                ...trackElements.slice(1).flatMap((el, elementIndex) => {
+                  const previous = trackElements[elementIndex];
+                  const gapStart = previous.startTime + previous.duration;
+                  const gapEnd = el.startTime;
+                  if (gapEnd - gapStart <= 0.05) return [];
+                  return [{ gapStart, gapEnd }];
+                })
+              ];
+
+              return (
               <React.Fragment key={track.id}>
                 <div
                   data-track-id={track.id}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, track.id)}
+                  className="relative"
                 >
                   <TimelineTrack
                     track={track}
@@ -576,6 +627,42 @@ const Timeline: React.FC<TimelineProps> = ({
                     trackCount={tracks.length}
                     trackLabel={getTrackLabel(track, index)}
                   />
+
+                  {gaps.map((gap, gapIndex) => (
+                    <button
+                      key={`${track.id}-${gap.gapStart}-${gap.gapEnd}-${gapIndex}`}
+                      type="button"
+                      className={`absolute top-[2px] bottom-[2px] rounded-sm border transition-colors ${selectedGap?.trackId === track.id && selectedGap.gapStart === gap.gapStart && selectedGap.gapEnd === gap.gapEnd
+                        ? 'border-pp-accent bg-pp-accent/15'
+                        : 'border-dashed border-white/10 bg-white/[0.04] hover:border-white/30 hover:bg-white/[0.08]'
+                        }`}
+                      style={{
+                        left: `${gap.gapStart * pixelsPerSecond + TIMELINE_TRACK_HEADER_WIDTH}px`,
+                        width: `${Math.max(8, (gap.gapEnd - gap.gapStart) * pixelsPerSecond)}px`
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedGap({ trackId: track.id, gapStart: gap.gapStart, gapEnd: gap.gapEnd });
+                        onSeek(gap.gapStart);
+                        setGapContextMenu(null);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedGap({ trackId: track.id, gapStart: gap.gapStart, gapEnd: gap.gapEnd });
+                        setGapContextMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          trackId: track.id,
+                          gapStart: gap.gapStart,
+                          gapEnd: gap.gapEnd
+                        });
+                      }}
+                      data-tip={`Gap ${formatTime(gap.gapEnd - gap.gapStart)}`}
+                    >
+                      <span className="pointer-events-none sr-only">Gap</span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Insert Layer Button */}
@@ -594,7 +681,7 @@ const Timeline: React.FC<TimelineProps> = ({
                   </div>
                 )}
               </React.Fragment>
-            ))}
+            )})}
 
             {/* Video/Audio divider line */}
             {videoTracks.length > 0 && audioTracks.length > 0 && (
@@ -606,6 +693,41 @@ const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
+
+      {gapContextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setGapContextMenu(null)} />
+          <div
+            className="fixed z-50 min-w-[140px] rounded border border-black/40 bg-[#2b2b2b] py-1 shadow-xl"
+            style={{ left: gapContextMenu.x, top: gapContextMenu.y }}
+          >
+            <button
+              type="button"
+              className="block w-full px-3 py-1.5 text-left text-[11px] text-pp-text hover:bg-pp-menu-hover"
+              onClick={() => {
+                onCloseGap?.(gapContextMenu.trackId, gapContextMenu.gapStart, gapContextMenu.gapEnd);
+                setGapContextMenu(null);
+                setSelectedGap(null);
+              }}
+            >
+              Delete
+            </button>
+            {onCloseGaps && (
+              <button
+                type="button"
+                className="block w-full px-3 py-1.5 text-left text-[11px] text-pp-text hover:bg-pp-menu-hover"
+                onClick={() => {
+                  onCloseGaps();
+                  setGapContextMenu(null);
+                  setSelectedGap(null);
+                }}
+              >
+                Delete All Gaps
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div >
   );
 };
