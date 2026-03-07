@@ -168,6 +168,8 @@ export interface Track {
   name: string;
   isVisible: boolean;
   isLocked: boolean;
+  isMuted?: boolean;
+  isSoloed?: boolean;
   type: 'video' | 'audio' | 'overlay';
   volume?: number; // 0-1 for track level volume
   pan?: number; // -1 to 1 for track level panning
