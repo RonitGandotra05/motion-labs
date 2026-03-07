@@ -241,9 +241,9 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               onMouseDown={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
               onTouchStart={(e) => onElementInteraction(e, 'MOVE', el.id, el.trackId, el.startTime, el.duration, el.mediaOffset)}
             >
-              {/* Audio Waveform */}
-              {(el.type === ElementType.AUDIO || el.type === ElementType.VIDEO) && el.props.src && (
-                <div className="absolute inset-0 opacity-40 z-0 pointer-events-none overflow-hidden">
+              {/* Audio Waveform - Only show on Audio Tracks */}
+              {isAudioTrack && (el.type === ElementType.AUDIO || el.type === ElementType.VIDEO) && el.props.src && (
+                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
                   <div
                     style={{
                       width: `${(el.duration + el.mediaOffset) / el.duration * 100}%`,
@@ -252,7 +252,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
                       position: 'relative'
                     }}
                   >
-                    <Waveform audioUrl={el.props.src} duration={el.duration + el.mediaOffset} />
+                    <Waveform audioUrl={el.props.src} duration={el.duration + el.mediaOffset} color="rgba(255, 255, 255, 0.45)" />
                   </div>
                 </div>
               )}

@@ -8,7 +8,7 @@ interface WaveformProps {
     height?: number;
 }
 
-const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = '#60a5fa', height = 40 }) => { // blue-400 default
+const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = 'rgba(255, 255, 255, 0.65)', height }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
     const [error, setError] = useState<boolean>(false);
@@ -63,12 +63,17 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = '#60a5f
 
         // Styling
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 1.0;
+
+        const amp = (height || rect.height) / 2;
+
+        // Draw Center Horizontal Line
+        ctx.fillRect(0, amp, rect.width, 1);
 
         // Draw Logic
         const data = audioBuffer.getChannelData(0); // Use first channel
         const step = Math.ceil(data.length / rect.width);
-        const amp = (height || rect.height) / 2;
+
 
         for (let i = 0; i < rect.width; i++) {
             let min = 1.0;
@@ -96,7 +101,7 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, duration, color = '#60a5f
     return (
         <canvas
             ref={canvasRef}
-            className="w-full h-full absolute inset-0 pointer-events-none opacity-50"
+            className="w-full h-full absolute inset-0 pointer-events-none"
             style={{ height: height ? `${height}px` : '100%' }}
         />
     );
