@@ -357,8 +357,10 @@ const Timeline: React.FC<TimelineProps> = ({
   };
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
@@ -375,16 +377,36 @@ const Timeline: React.FC<TimelineProps> = ({
     }
   };
 
+  // Calculate dynamic tick interval based on zoom to prevent DOM bloat
+  const getTickInterval = (pps: number) => {
+    const targetPx = 60; // target space between ticks in pixels
+    const seconds = targetPx / pps;
+    if (seconds <= 1) return 1;
+    if (seconds <= 2) return 2;
+    if (seconds <= 5) return 5;
+    if (seconds <= 10) return 10;
+    if (seconds <= 15) return 15;
+    if (seconds <= 30) return 30;
+    if (seconds <= 60) return 60; // 1 min
+    if (seconds <= 300) return 300; // 5 min
+    if (seconds <= 600) return 600; // 10 min
+    if (seconds <= 1800) return 1800; // 30 min
+    return 3600; // 1 hour
+  };
+
   const rulerTicks = [];
-  const totalWidth = Math.max(duration, 60) * pixelsPerSecond + 500;
-  for (let i = 0; i < Math.max(duration, 60); i++) {
+  const maxTime = Math.max(duration, 60);
+  const totalWidth = maxTime * pixelsPerSecond + 500;
+  const tickInterval = getTickInterval(pixelsPerSecond);
+
+  for (let i = 0; i < maxTime; i += tickInterval) {
     rulerTicks.push(
       <div
         key={i}
         className="absolute top-0 bottom-0 border-l border-pp-border text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono"
         style={{ left: i * pixelsPerSecond }}
       >
-        {i % 5 === 0 ? formatTime(i) : ''}
+        {formatTime(i)}
       </div>
     );
   }
@@ -413,14 +435,14 @@ const Timeline: React.FC<TimelineProps> = ({
           <button onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
             <ZoomOutIcon className="w-3 h-3" />
           </button>
-          <input type="range" min="10" max="200" value={pixelsPerSecond} onChange={(e) => setPixelsPerSecond(Number(e.target.value))} className="pp-slider w-16" data-tip="Timeline Zoom Level" />
+          <input type="range" min="0.5" max="2000" step="0.5" value={pixelsPerSecond} onChange={(e) => setPixelsPerSecond(Number(e.target.value))} className="pp-slider w-16" data-tip="Timeline Zoom Level" />
           <button onClick={() => setPixelsPerSecond(Math.min(200, pixelsPerSecond + 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom In (+)">
             <ZoomInIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      <div className="flex-grow relative overflow-x-auto overflow-y-auto custom-scrollbar">
+      <div className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
         <div className="relative min-w-full" style={{ width: `${totalWidth + 220}px` }}>
 
           {/* Ruler - Premiere Pro style */}

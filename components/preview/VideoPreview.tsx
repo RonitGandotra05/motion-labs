@@ -13,6 +13,8 @@ interface VideoPreviewProps {
   togglePlay: () => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
+  duration: number;
+  onDurationChange?: (duration: number) => void;
 }
 
 export interface VideoPreviewHandle {
@@ -29,7 +31,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   onTimeUpdate,
   togglePlay,
   aspectRatio,
-  onAspectRatioChange
+  onAspectRatioChange,
+  duration
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const aspectRatioPresets = [
@@ -796,19 +799,47 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
           </select>
         </div>
 
-        {/* Center: Transport Controls */}
-        <div className="flex items-center space-x-1 flex-1 justify-center">
-          <button className="pp-transport-btn" data-tip="Go to In"><span className="text-[10px]">⏮</span></button>
-          <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.max(0, currentTime - 0.1))} data-tip="Step Back 1 Frame"><span className="text-[10px]">◀</span></button>
-          <button
-            onClick={togglePlay}
-            className="pp-transport-btn w-8 h-8 mx-1"
-            data-tip={isPlaying ? "Stop" : "Play"}
-          >
-            {isPlaying ? <span className="text-[12px]">⏸</span> : <span className="text-[14px]">▶</span>}
-          </button>
-          <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.min(9999, currentTime + 0.1))} data-tip="Step Forward 1 Frame"><span className="text-[10px]">▶</span></button>
-          <button className="pp-transport-btn" data-tip="Go to Out"><span className="text-[10px]">⏭</span></button>
+        {/* Center: Transport Controls & Scrubber */}
+        <div className="flex flex-col items-center flex-1 justify-center relative px-4" style={{ marginTop: '-4px' }}>
+          {/* Scrubber above buttons */}
+          <div className="w-full h-[6px] relative group flex items-center mb-0.5 mt-[-8px]">
+            <input
+              type="range"
+              min="0"
+              max={Math.max(duration, 0.1)}
+              step="0.01"
+              value={currentTime}
+              onChange={(e) => onTimeUpdate(Number(e.target.value))}
+              className="absolute inset-0 w-full opacity-100 outline-none cursor-pointer z-10"
+              style={{
+                background: 'transparent',
+                accentColor: '#e0e0e0', // Light gray knob
+              }}
+            />
+            {/* Custom Track Background */}
+            <div className="absolute left-0 right-0 h-[2px] bg-[#111111] top-1/2 -translate-y-1/2 group-hover:bg-[#2a2a2a] transition-colors pointer-events-none rounded">
+              {/* Fill */}
+              <div
+                className="h-full bg-[#4e9fd5] rounded"
+                style={{ width: `${(currentTime / Math.max(duration, 0.1)) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Transport Buttons */}
+          <div className="flex items-center space-x-1">
+            <button onClick={() => onTimeUpdate(0)} className="pp-transport-btn" data-tip="Go to In"><span className="text-[10px]">⏮</span></button>
+            <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.max(0, currentTime - 0.1))} data-tip="Step Back 1 Frame"><span className="text-[10px]">◀</span></button>
+            <button
+              onClick={togglePlay}
+              className="pp-transport-btn w-8 h-8 mx-1"
+              data-tip={isPlaying ? "Stop" : "Play"}
+            >
+              {isPlaying ? <span className="text-[12px]">⏸</span> : <span className="text-[14px]">▶</span>}
+            </button>
+            <button className="pp-transport-btn" onClick={() => onTimeUpdate(Math.min(duration, currentTime + 0.1))} data-tip="Step Forward 1 Frame"><span className="text-[10px]">▶</span></button>
+            <button onClick={() => onTimeUpdate(duration)} className="pp-transport-btn" data-tip="Go to Out"><span className="text-[10px]">⏭</span></button>
+          </div>
         </div>
 
         {/* Right: Tools & Overlays */}

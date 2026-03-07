@@ -508,17 +508,15 @@ function App() {
         return;
       }
 
-      // Zoom In: + or =
       if ((e.key === '+' || e.key === '=') && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setPixelsPerSecond(prev => Math.min(prev * 1.2, 500));
+        setPixelsPerSecond(prev => Math.min(prev * 1.2, 2000));
         return;
       }
 
-      // Zoom Out: -
       if (e.key === '-' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setPixelsPerSecond(prev => Math.max(prev / 1.2, 5));
+        setPixelsPerSecond(prev => Math.max(prev / 1.2, 0.5));
         return;
       }
 
@@ -1440,6 +1438,7 @@ function App() {
               togglePlay={togglePlay}
               aspectRatio={previewAspectRatio}
               onAspectRatioChange={applyPreviewAspectRatio}
+              duration={project.duration}
             />
           </div>
 
@@ -1616,6 +1615,7 @@ function App() {
                     togglePlay={togglePlay}
                     aspectRatio={previewAspectRatio}
                     onAspectRatioChange={applyPreviewAspectRatio}
+                    duration={project.duration}
                   />
                 </div>
               </div>
