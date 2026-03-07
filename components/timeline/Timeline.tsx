@@ -34,6 +34,7 @@ interface TimelineProps {
   toolMode?: ToolMode;
   setToolMode?: (mode: ToolMode) => void;
   onSplitElement?: (elementId: string, time: number) => void;
+  onUpdateTrack?: (trackId: number, updates: Partial<Track>) => void;
 }
 
 type DragMode = 'MOVE' | 'RESIZE_L' | 'RESIZE_R' | 'SLIP' | 'ROLL';
@@ -69,7 +70,8 @@ const Timeline: React.FC<TimelineProps> = ({
   onDeleteMarker,
   toolMode = 'pointer',
   setToolMode,
-  onSplitElement
+  onSplitElement,
+  onUpdateTrack
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -91,22 +93,22 @@ const Timeline: React.FC<TimelineProps> = ({
   // Snap indicator state
   const [snapIndicator, setSnapIndicator] = useState<{ time: number } | null>(null);
 
-  // Helper: Find all snap points (element edges + playhead) across the full timeline, excluding the dragged element
+  // Helper: Find all snap points
   const findSnapPoints = useCallback((excludeElementId: string): number[] => {
-    const points: number[] = [0, currentTime]; // Include time 0 and playhead position
+    const points: number[] = [0, currentTime];
     elements
       .filter(el => el.id !== excludeElementId)
       .forEach(el => {
-        points.push(el.startTime); // Start edge
-        points.push(el.startTime + el.duration); // End edge
+        points.push(el.startTime);
+        points.push(el.startTime + el.duration);
       });
     return points;
   }, [elements, currentTime]);
 
-  // Helper: Snap a time value to nearest snap point if within threshold
+  // Helper: Snap to nearest point
   const snapToNearestPoint = useCallback((time: number, snapPoints: number[], shiftPressed: boolean): { snapped: number; didSnap: boolean } => {
     if (shiftPressed || !snapEnabled) {
-      return { snapped: time, didSnap: false }; // Shift or snap disabled
+      return { snapped: time, didSnap: false };
     }
 
     const thresholdTime = SNAP_THRESHOLD_PX / pixelsPerSecond;
@@ -139,7 +141,7 @@ const Timeline: React.FC<TimelineProps> = ({
     if (!rulerRef.current) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
     const rect = rulerRef.current.getBoundingClientRect();
-    const x = clientX - rect.left - 96;
+    const x = clientX - rect.left - 220;
     const newTime = Math.max(0, x / pixelsPerSecond);
     onSeek(newTime);
   };
@@ -149,19 +151,12 @@ const Timeline: React.FC<TimelineProps> = ({
     e.stopPropagation();
     e.preventDefault();
 
-    // Multi-select logic (using simple property check to be safe for TouchEvent vs MouseEvent)
     const isMetaKey = 'metaKey' in e && e.metaKey;
     const isCtrlKey = 'ctrlKey' in e && e.ctrlKey;
 
     if (isMetaKey || isCtrlKey) {
       onToggleSelectElement(elementId);
     } else {
-      // If clicking an already selected element (in a multi-selection) without modifier, 
-      // AND we are starting a drag, we typically want to keep the selection to allow moving the whole group.
-      // But if we just click, we might want to deselect others. 
-      // Standard behavior: mousedown on selected keeps selection, mouseup might clear if no drag.
-      // For simplicity here: if not already selected, select only it.
-      // If already selected, keep selection (to allow drag).
       if (!selectedElementIds.includes(elementId)) {
         onSelectElement(elementId);
       }
@@ -180,7 +175,6 @@ const Timeline: React.FC<TimelineProps> = ({
     } else if (toolMode === 'slip' && type === 'MOVE') {
       actualDragMode = 'SLIP';
     } else if (toolMode === 'roll') {
-      // Basic roll mappings. (Proper roll requires finding adjacent clips, implemented later or handled by edge resize)
       actualDragMode = type === 'MOVE' ? 'ROLL' : type;
     }
 
@@ -201,19 +195,18 @@ const Timeline: React.FC<TimelineProps> = ({
       const isTouch = 'touches' in e;
 
       if (isDraggingPlayhead) {
-        if (isTouch) e.preventDefault(); // Prevent scrolling while scrubbing
+        if (isTouch) e.preventDefault();
         updateTimeFromMouse(e);
       }
 
       if (dragState) {
-        if (isTouch) e.preventDefault(); // Prevent scrolling while dragging element
+        if (isTouch) e.preventDefault();
         const clientX = isTouch ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
         const shiftPressed = !isTouch && (e as MouseEvent).shiftKey;
 
         const deltaX = clientX - dragState.startX;
         const deltaTime = deltaX / pixelsPerSecond;
 
-        // Find if dragging a group
         const draggedElement = elements.find(el => el.id === dragState.elementId);
         const groupMembers = draggedElement?.groupId
           ? elements.filter(el => el.groupId === draggedElement.groupId && el.id !== draggedElement.id)
@@ -221,10 +214,6 @@ const Timeline: React.FC<TimelineProps> = ({
 
         if (dragState.mode === 'MOVE') {
           let newStartTime = Math.max(0, dragState.originalStartTime + deltaTime);
-          const elementDuration = dragState.originalDuration;
-
-          // Determine Track (Only for the primary dragged element for now)
-          // Group members move relative to their own start times
           const trackElement = (e.target as HTMLElement).closest('[data-track-id]');
           let newTrackId = dragState.originalTrackId;
 
@@ -233,7 +222,6 @@ const Timeline: React.FC<TimelineProps> = ({
             if (!isNaN(id)) newTrackId = id;
           }
 
-          // Apply magnetic snapping (primary element only)
           const snapPoints = removeCurrentSnapPoint(
             findSnapPoints(dragState.elementId),
             dragState.originalStartTime,
@@ -249,27 +237,19 @@ const Timeline: React.FC<TimelineProps> = ({
           }
 
           const timeDelta = newStartTime - dragState.originalStartTime;
-          const trackDelta = newTrackId - dragState.originalTrackId;
 
-          // Update Primary Element
           onUpdateElement(dragState.elementId, {
             startTime: newStartTime,
             trackId: newTrackId
           });
 
-          // Update Group Members (Move by same time delta, keep track relative or same? Usually groups move across tracks together if selected together, but here we only dragged one.)
-          // DaVinci behavior: If you drag one clip in a linked group, they all move in time. They usually stay on their respective tracks unless explicitly moved.
-          // Let's implement: Move in sync time-wise. Keep track same (unless we want to support multi-track move, which is hard with single mouse pointer).
           groupMembers.forEach(member => {
             onUpdateElement(member.id, {
               startTime: Math.max(0, member.startTime + timeDelta)
-              // We do NOT change move trackId for members automatically to avoid collisions or complex logic
             });
           });
 
         } else if (dragState.mode === 'RESIZE_R') {
-          // ... (Resize logic typically doesn't affect group members unless we want 'ripple' effect, but standard Group doesn't resize together usually)
-          // For now, only resize the specific element.
           let newEndTime = dragState.originalStartTime + dragState.originalDuration + deltaTime;
           const snapPoints = removeCurrentSnapPoint(
             findSnapPoints(dragState.elementId),
@@ -286,14 +266,10 @@ const Timeline: React.FC<TimelineProps> = ({
           }
 
           const newDuration = Math.max(0.5, newEndTime - dragState.originalStartTime);
-          onUpdateElement(dragState.elementId, {
-            duration: newDuration
-          });
+          onUpdateElement(dragState.elementId, { duration: newDuration });
 
         } else if (dragState.mode === 'RESIZE_L') {
-          // ...
           let newStartTime = dragState.originalStartTime + deltaTime;
-          // ... (snapping logic)
           const snapPoints = removeCurrentSnapPoint(
             findSnapPoints(dragState.elementId),
             dragState.originalStartTime,
@@ -323,21 +299,13 @@ const Timeline: React.FC<TimelineProps> = ({
             mediaOffset: dragState.originalMediaOffset + effectiveDelta
           });
         } else if (dragState.mode === 'SLIP') {
-          // Slip changes mediaOffset but keeps startTime and duration same
           const deltaOffset = -deltaTime;
           const newOffset = Math.max(0, dragState.originalMediaOffset + deltaOffset);
-
-          onUpdateElement(dragState.elementId, {
-            mediaOffset: newOffset
-          });
+          onUpdateElement(dragState.elementId, { mediaOffset: newOffset });
         } else if (dragState.mode === 'ROLL') {
-          // Simple roll fallback if clicking middle in roll mode: just slip for now
           const deltaOffset = -deltaTime;
           const newOffset = Math.max(0, dragState.originalMediaOffset + deltaOffset);
-
-          onUpdateElement(dragState.elementId, {
-            mediaOffset: newOffset
-          });
+          onUpdateElement(dragState.elementId, { mediaOffset: newOffset });
         }
       }
     };
@@ -345,7 +313,7 @@ const Timeline: React.FC<TimelineProps> = ({
     const handleMouseUp = () => {
       setIsDraggingPlayhead(false);
       setDragState(null);
-      setSnapIndicator(null); // Clear snap indicator on release
+      setSnapIndicator(null);
     };
 
     if (isDraggingPlayhead || dragState) {
@@ -371,17 +339,21 @@ const Timeline: React.FC<TimelineProps> = ({
 
   const handleDrop = (e: React.DragEvent, trackId: number) => {
     e.preventDefault();
-
     const assetId = e.dataTransfer.getData('application/react-frame-asset-id');
-
     if (assetId && onAddAsset) {
-      // Calculate time from drop position relative to the track container
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left - 96;
+      const x = e.clientX - rect.left - 220;
       const dropTime = Math.max(0, x / pixelsPerSecond);
-
       onAddAsset(assetId, trackId, dropTime);
     }
+  };
+
+  const formatTimecode = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const f = Math.floor((seconds % 1) * 24); // 24fps frames
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${f.toString().padStart(2, '0')}`;
   };
 
   const formatTime = (seconds: number) => {
@@ -390,175 +362,129 @@ const Timeline: React.FC<TimelineProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Generate V/A track labels
+  const getTrackLabel = (track: Track, index: number) => {
+    const videoTracks = tracks.filter(t => t.type !== 'audio');
+    const audioTracks = tracks.filter(t => t.type === 'audio');
+    if (track.type === 'audio') {
+      const audioIndex = audioTracks.indexOf(track);
+      return `A${audioIndex + 1}`;
+    } else {
+      const videoIndex = videoTracks.indexOf(track);
+      return `V${videoTracks.length - videoIndex}`;
+    }
+  };
+
   const rulerTicks = [];
   const totalWidth = Math.max(duration, 60) * pixelsPerSecond + 500;
   for (let i = 0; i < Math.max(duration, 60); i++) {
     rulerTicks.push(
-      <div key={i} className="absolute top-0 bottom-0 border-l border-gray-300 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-500 pl-1 select-none transition-colors" style={{ left: i * pixelsPerSecond }}>
+      <div
+        key={i}
+        className="absolute top-0 bottom-0 border-l border-pp-border text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono"
+        style={{ left: i * pixelsPerSecond }}
+      >
         {i % 5 === 0 ? formatTime(i) : ''}
       </div>
     );
   }
 
+  // Separate video and audio tracks
+  const videoTracks = tracks.filter(t => t.type !== 'audio');
+  const audioTracks = tracks.filter(t => t.type === 'audio');
+  const orderedTracks = [...videoTracks.reverse(), ...audioTracks]; // V tracks reversed so V1 is at bottom
+
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200 select-none transition-colors" ref={containerRef}>
+    <div className="flex flex-col h-full bg-pp-darkest text-pp-text select-none" ref={containerRef}>
 
-      {/* Tools / Header */}
-      <div className="h-10 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center px-4 justify-between transition-colors">
-        <div className="flex space-x-4 text-xs items-center">
-          <span className="font-mono text-blue-600 dark:text-blue-400">{formatTime(currentTime)}</span>
-          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
-
-          <div className="flex space-x-1 items-center bg-gray-100 dark:bg-gray-800 p-0.5 rounded mr-2">
-            <button
-              onClick={() => setToolMode?.('pointer')}
-              className={`p-1.5 rounded transition ${toolMode === 'pointer' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
-              title="Pointer Tool (V)"
-            >
-              <MousePointerIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                onSplit();
-                if (toolMode === 'blade') {
-                  setToolMode?.('pointer');
-                }
-              }}
-              className="p-1.5 rounded transition hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75"
-              title="Split at Playhead"
-            >
-              <ScissorsIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setToolMode?.('slip')}
-              className={`p-1.5 rounded transition ${toolMode === 'slip' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
-              title="Slip Tool (T)"
-            >
-              <SlipIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setToolMode?.('roll')}
-              className={`p-1.5 rounded transition ${toolMode === 'roll' ? 'bg-white dark:bg-gray-600 shadow text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 delay-75'}`}
-              title="Roll Tool (Y)"
-            >
-              <RollIcon className="w-4 h-4" />
-            </button>
+      {/* Timeline Header Tab Bar - Premiere Pro style */}
+      <div className="h-[28px] border-b border-[#111111] bg-[#232323] flex items-end px-2 justify-between flex-shrink-0 relative z-10 w-full">
+        <div className="flex items-center h-full">
+          {/* Sequence tab */}
+          <div className="pp-panel-tab active h-full flex items-center shrink-0 gap-2 border-r border-[#111111]" data-tip="Timeline Panel">
+            <span className="text-[10px] text-gray-500 hover:text-white cursor-pointer font-bold pb-0.5" data-tip="Close Timeline Panel">×</span>
+            <span>Timeline: Main Sequence</span>
+            <span className="text-[10px] text-gray-400 hover:text-white cursor-pointer ml-1" data-tip="Timeline Panel Menu">≡</span>
           </div>
-
-          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
-
-          {onToggleRippleEdit && (
-            <button
-              onClick={onToggleRippleEdit}
-              className={`flex items-center space-x-1 px-2 py-1 rounded transition ${rippleEditMode ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
-              title="Ripple Edit Mode - shifts subsequent clips when trimming/deleting"
-            >
-              <span>⟷</span>
-              <span>Ripple</span>
-            </button>
-          )}
-
-          {/* Snap Toggle */}
-          {onToggleSnap && (
-            <button
-              onClick={onToggleSnap}
-              className={`flex items-center space-x-1 px-2 py-1 rounded transition ${snapEnabled ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
-              title={snapEnabled ? "Snapping On (click to disable)" : "Snapping Off (click to enable)"}
-            >
-              <MagnetIcon className="w-4 h-4" />
-              <span>Snap</span>
-            </button>
-          )}
-
-          {/* Close Gaps */}
-          {onCloseGaps && (
-            <button
-              onClick={onCloseGaps}
-              className="flex items-center space-x-1 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1 rounded transition text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white"
-              title="Close all gaps between clips"
-            >
-              <CompressIcon className="w-4 h-4" />
-              <span>Close Gaps</span>
-            </button>
-          )}
         </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
-            title="Zoom Out (-)"
-          >
-            <ZoomOutIcon className="w-4 h-4" />
+        {/* Essential right-side Timeline display tools (zoom) */}
+        <div className="flex items-center space-x-1 pb-1">
+          <button onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
+            <ZoomOutIcon className="w-3 h-3" />
           </button>
-          <input
-            type="range" min="10" max="200"
-            value={pixelsPerSecond}
-            onChange={(e) => setPixelsPerSecond(Number(e.target.value))}
-            className="w-20 h-1 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-          />
-          <button
-            onClick={() => setPixelsPerSecond(Math.min(200, pixelsPerSecond + 20))}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
-            title="Zoom In (+)"
-          >
-            <ZoomInIcon className="w-4 h-4" />
-          </button>
-          <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
-          <button
-            onClick={() => {
-              // Fit all elements in view
-              if (elements.length > 0) {
-                const maxEndTime = Math.max(...elements.map(el => el.startTime + el.duration));
-                const containerWidth = containerRef.current?.clientWidth || 800;
-                const newPPS = Math.max(10, Math.min(200, (containerWidth - 150) / maxEndTime));
-                setPixelsPerSecond(Math.round(newPPS));
-              }
-            }}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition text-gray-600 dark:text-gray-300"
-            title="Fit to Window (Shift+Z)"
-          >
-            <FitIcon className="w-4 h-4" />
+          <input type="range" min="10" max="200" value={pixelsPerSecond} onChange={(e) => setPixelsPerSecond(Number(e.target.value))} className="pp-slider w-16" data-tip="Timeline Zoom Level" />
+          <button onClick={() => setPixelsPerSecond(Math.min(200, pixelsPerSecond + 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom In (+)">
+            <ZoomInIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
       <div className="flex-grow relative overflow-x-auto overflow-y-auto custom-scrollbar">
-        <div className="relative min-w-full" style={{ width: `${totalWidth + 96}px` }}>
+        <div className="relative min-w-full" style={{ width: `${totalWidth + 220}px` }}>
 
-          {/* Ruler */}
+          {/* Ruler - Premiere Pro style */}
           <div
             ref={rulerRef}
-            className="h-8 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 relative cursor-pointer transition-colors"
+            className="h-[56px] bg-[#232323] border-b border-black/40 relative cursor-pointer"
             onMouseDown={handleRulerMouseDown}
             onTouchStart={handleRulerMouseDown}
             onDoubleClick={(e) => {
               if (onAddMarker && rulerRef.current) {
                 const rect = rulerRef.current.getBoundingClientRect();
-                const x = e.clientX - rect.left - 96;
+                const x = e.clientX - rect.left - 220;
                 const time = Math.max(0, x / pixelsPerSecond);
                 onAddMarker(time);
               }
             }}
           >
-            <div className="w-24 h-full border-r border-gray-200 dark:border-gray-700 absolute left-0 bg-gray-100 dark:bg-gray-800 z-20 transition-colors"></div>
-            <div className="absolute left-24 right-0 top-0 bottom-0">
+            {/* Top-Left Fixed Timecode Block */}
+            <div className="w-[220px] h-full border-r border-black/40 absolute left-0 bg-[#1c1c1c] z-20 flex flex-col justify-center px-4 pt-1 cursor-default" onMouseDown={e => e.stopPropagation()}>
+              <div className="text-[#4e9fd5] font-pp-mono text-[16px] tracking-wider mb-2">
+                {formatTimecode(currentTime)}
+              </div>
+              <div className="flex items-center space-x-[14px] text-gray-500">
+                {/* 1. Nesting */}
+                <button data-tip="Insert and overwrite sequences as nests or individual clips" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16v16H4z" /><path d="M4 10h16" /><path d="M10 4v16" /></svg>
+                </button>
+                {/* 2. Magnet (Snap) */}
+                <button
+                  onClick={onToggleSnap}
+                  className={`flex items-center justify-center outline-none ${snapEnabled ? 'text-[#448aff]' : 'hover:text-white'} cursor-pointer bg-transparent border-none p-0`}
+                  data-tip="Snap in Timeline (S)"
+                >
+                  <MagnetIcon className="w-3.5 h-3.5" />
+                </button>
+                {/* 3. Linked Selection */}
+                <button data-tip="Linked Selection" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                </button>
+                {/* 4. Marker */}
+                <button onClick={() => onAddMarker && onAddMarker(currentTime)} data-tip="Add Marker (M)" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L3 22h18L12 2z" /></svg>
+                </button>
+                {/* 5. Wrench */}
+                <button data-tip="Timeline Display Settings" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="absolute left-[220px] right-0 bottom-0 h-[24px]">
               {rulerTicks}
               {/* Markers */}
               {markers.map(marker => (
                 <div
                   key={marker.id}
-                  className={`absolute top-0 w-3 h-3 -ml-1.5 z-30 cursor-pointer hover:scale-125 transition-transform`}
+                  className="absolute bottom-0 w-3 h-3 -ml-1.5 z-30 cursor-pointer hover:scale-125 transition-transform"
                   style={{
                     left: marker.time * pixelsPerSecond,
                     backgroundColor: marker.color,
                     clipPath: 'polygon(50% 100%, 0% 0%, 100% 0%)'
                   }}
-                  title={`${marker.name} at ${formatTime(marker.time)}`}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                  }}
+                  data-tip={`${marker.name} at ${formatTime(marker.time)}`}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onUpdateMarker) {
@@ -584,22 +510,29 @@ const Timeline: React.FC<TimelineProps> = ({
           <div className="relative">
             {/* Playhead */}
             <div
-              className="absolute top-0 w-px bg-red-500 z-30 pointer-events-none"
-              style={{ left: `${(currentTime * pixelsPerSecond) + 96}px`, height: `${tracks.length * 48}px` }}
+              className="absolute top-0 w-px bg-pp-playhead z-30 pointer-events-none"
+              style={{ left: `${(currentTime * pixelsPerSecond) + 220}px`, height: `${tracks.length * 40}px` }}
             >
-              <div className="w-3 h-3 bg-red-500 transform -translate-x-1/2 -translate-y-1/2 rotate-45 absolute top-0"></div>
+              {/* Red triangle at top */}
+              <div className="absolute -top-[10px] left-1/2 -translate-x-1/2 w-0 h-0"
+                style={{
+                  borderLeft: '5px solid transparent',
+                  borderRight: '5px solid transparent',
+                  borderTop: '8px solid #ff0000'
+                }}
+              />
             </div>
 
             {snapIndicator && (
               <div
-                className="absolute top-0 w-0.5 bg-green-500 z-40 pointer-events-none animate-pulse"
-                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + 96}px`, height: `${tracks.length * 48}px` }}
+                className="absolute top-0 w-0.5 bg-green-400 z-40 pointer-events-none"
+                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + 220}px`, height: `${tracks.length * 40}px` }}
               >
-                <div className="w-2 h-2 bg-green-500 rounded-full transform -translate-x-1/2 absolute top-0"></div>
+                <div className="w-2 h-2 bg-green-400 rounded-full transform -translate-x-1/2 absolute top-0" />
               </div>
             )}
 
-            {tracks.map((track, index) => (
+            {orderedTracks.map((track, index) => (
               <React.Fragment key={track.id}>
                 <div
                   data-track-id={track.id}
@@ -617,29 +550,37 @@ const Timeline: React.FC<TimelineProps> = ({
                     onElementInteraction={handleElementInteraction}
                     onInsertTrack={onInsertTrack}
                     onDeleteTrack={onDeleteTrack}
+                    onUpdateTrack={onUpdateTrack}
                     trackCount={tracks.length}
+                    trackLabel={getTrackLabel(track, index)}
                   />
                 </div>
 
-                {/* Insert Layer Button - appears on hover between tracks */}
+                {/* Insert Layer Button */}
                 {onInsertTrack && (
-                  <div
-                    className="group relative h-0 w-full"
-                  >
+                  <div className="group relative h-0 w-full">
                     <div className="absolute left-0 right-0 top-0 h-2 -translate-y-1/2 z-20 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="absolute inset-0 bg-blue-500/20 hover:bg-blue-500/40 transition-colors" />
+                      <div className="absolute inset-0 bg-pp-accent/20 hover:bg-pp-accent/40 transition-colors" />
                       <button
                         onClick={() => onInsertTrack(track.id)}
-                        className="relative z-10 flex items-center space-x-1 bg-blue-500 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full shadow-lg transform scale-90 hover:scale-100 transition-all"
+                        className="relative z-10 flex items-center space-x-1 bg-pp-accent hover:bg-pp-accent-hover text-white text-[10px] px-2 py-0.5 rounded-full shadow-lg transform scale-90 hover:scale-100 transition-all"
                       >
                         <span className="font-bold">+</span>
-                        <span>Add Layer</span>
+                        <span>Add Track</span>
                       </button>
                     </div>
                   </div>
                 )}
               </React.Fragment>
             ))}
+
+            {/* Video/Audio divider line */}
+            {videoTracks.length > 0 && audioTracks.length > 0 && (
+              <div
+                className="absolute left-0 right-0 h-[2px] bg-pp-border z-20"
+                style={{ top: `${videoTracks.length * 40}px` }}
+              />
+            )}
           </div>
         </div>
       </div>
