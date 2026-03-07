@@ -1834,13 +1834,14 @@ function App() {
                     <EffectsPanel />
                   )}
                 </div>
+              </div>
 
-                {/* Left resize handle */}
-                <div
-                  className="absolute top-0 bottom-0 w-1 cursor-ew-resize z-30 pp-resize-handle"
-                  style={{ right: `-2px` }}
-                  onMouseDown={() => setIsResizingBottomLeft(true)}
-                />
+              <div
+                className="relative z-40 flex-none w-2 cursor-ew-resize pp-resize-handle"
+                onMouseDown={() => setIsResizingBottomLeft(true)}
+                data-tip="Resize project bin"
+              >
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/50" />
               </div>
 
               {/* Tools Panel */}
