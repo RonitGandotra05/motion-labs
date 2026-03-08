@@ -35,6 +35,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const photoStreamRef = useRef<MediaStream | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const activePreviewStreamRef = useRef<MediaStream | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
 
   // Generator State
@@ -87,7 +88,37 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
       videoPreviewRef.current.pause();
       videoPreviewRef.current.srcObject = null;
     }
+    activePreviewStreamRef.current = null;
   };
+
+  const attachPreviewStream = async () => {
+    const videoEl = videoPreviewRef.current;
+    const previewStream = activePreviewStreamRef.current;
+    if (!videoEl || !previewStream) return;
+
+    if (videoEl.srcObject !== previewStream) {
+      videoEl.srcObject = previewStream;
+    }
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    try {
+      await videoEl.play();
+    } catch {
+      // Keep silent: user already initiated recording and browser may still gate autoplay.
+    }
+  };
+
+  useEffect(() => {
+    const shouldShowVideoPreview = isCapturingPhoto || (isRecording && recordingType === ElementType.VIDEO);
+    if (!shouldShowVideoPreview) {
+      return;
+    }
+
+    const raf = requestAnimationFrame(() => {
+      void attachPreviewStream();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isRecording, isCapturingPhoto, recordingType]);
 
   const getRecorderMimeType = (type: ElementType.VIDEO | ElementType.AUDIO) => {
     if (typeof MediaRecorder === 'undefined') {
@@ -417,14 +448,9 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
       }
 
       // Set up video preview
-      if (videoPreviewRef.current && type === ElementType.VIDEO) {
-        videoPreviewRef.current.srcObject = previewStream;
-        videoPreviewRef.current.muted = true;
-        try {
-          await videoPreviewRef.current.play();
-        } catch (playErr) {
-          console.log('Auto-play prevented, user interaction may be needed');
-        }
+      if (type === ElementType.VIDEO) {
+        activePreviewStreamRef.current = previewStream;
+        await attachPreviewStream();
       }
 
       const mimeType = getRecorderMimeType(type);
@@ -522,13 +548,8 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
 
       photoStreamRef.current = stream;
       setIsCapturingPhoto(true);
-
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = stream;
-        videoPreviewRef.current.muted = true;
-        videoPreviewRef.current.playsInline = true;
-        await videoPreviewRef.current.play();
-      }
+      activePreviewStreamRef.current = stream;
+      await attachPreviewStream();
     } catch (err) {
       console.error('Error accessing camera for photo capture:', err);
       stopPhotoCapture();
@@ -665,7 +686,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
             </div>
           )}
           {(recordingType === ElementType.VIDEO || isCapturingPhoto) && (
-            <video ref={videoPreviewRef} className="w-full aspect-video bg-black border border-gray-700 rounded mb-4" muted />
+            <video ref={videoPreviewRef} className="w-full aspect-video bg-black border border-gray-700 rounded mb-4" muted autoPlay playsInline />
           )}
           {recordingType === ElementType.AUDIO && (
             <div className="w-32 h-32 bg-gray-800 rounded-full flex items-center justify-center animate-pulse mb-4">
