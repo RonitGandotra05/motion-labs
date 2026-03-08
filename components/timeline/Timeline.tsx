@@ -392,6 +392,23 @@ const Timeline: React.FC<TimelineProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const formatRulerTime = (seconds: number, interval: number) => {
+    if (interval >= 1) {
+      return formatTime(seconds);
+    }
+
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const fractional = Math.floor((seconds - Math.floor(seconds)) * 100);
+
+    if (h > 0) {
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${fractional.toString().padStart(2, '0')}`;
+    }
+
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${fractional.toString().padStart(2, '0')}`;
+  };
+
   // Generate V/A track labels
   const getTrackLabel = (track: Track, index: number) => {
     const videoTracks = tracks.filter(t => t.type !== 'audio');
@@ -409,6 +426,10 @@ const Timeline: React.FC<TimelineProps> = ({
   const getTickInterval = (pps: number) => {
     const targetPx = 60; // target space between ticks in pixels
     const seconds = targetPx / pps;
+    if (seconds <= 0.05) return 0.05;
+    if (seconds <= 0.1) return 0.1;
+    if (seconds <= 0.25) return 0.25;
+    if (seconds <= 0.5) return 0.5;
     if (seconds <= 1) return 1;
     if (seconds <= 2) return 2;
     if (seconds <= 5) return 5;
@@ -455,16 +476,20 @@ const Timeline: React.FC<TimelineProps> = ({
 
   const majorTickHeightClass = 'h-[24px]';
   const minorTickHeightClass = 'h-[12px]';
-  const minorDivisions = pixelsPerSecond >= 180 ? 10 : pixelsPerSecond >= 80 ? 5 : pixelsPerSecond >= 28 ? 4 : 2;
+  const minorDivisions = tickInterval < 1 ? 5 : pixelsPerSecond >= 180 ? 10 : pixelsPerSecond >= 80 ? 5 : pixelsPerSecond >= 28 ? 4 : 2;
+  const tickCount = Math.ceil(maxTime / tickInterval);
 
-  for (let i = 0; i < maxTime; i += tickInterval) {
+  for (let tickIndex = 0; tickIndex <= tickCount; tickIndex++) {
+    const i = tickIndex * tickInterval;
+    if (i > maxTime) break;
+
     rulerTicks.push(
       <React.Fragment key={i}>
         <div
-          className={`absolute top-0 border-l border-white/35 text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono ${majorTickHeightClass}`}
+          className={`absolute top-0 border-l border-white/40 text-[9px] text-[#9ca3af] pl-0.5 select-none font-pp-mono ${majorTickHeightClass}`}
           style={{ left: i * pixelsPerSecond }}
         >
-          {formatTime(i)}
+          {formatRulerTime(i, tickInterval)}
         </div>
         {Array.from({ length: minorDivisions - 1 }, (_, minorIndex) => {
           const minorStep = tickInterval / minorDivisions;
