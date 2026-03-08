@@ -72,31 +72,31 @@ const AudioMixerPanel: React.FC<AudioMixerPanelProps> = ({
     const dbMarks = [0, -6, -12, -18, -24, -36, -48];
 
     return (
-        <div className="flex flex-col h-[calc(100%-24px)] bg-pp-darkest border-l border-black/50 w-[42px] flex-shrink-0 select-none font-pp-ui mt-6 relative z-10 box-border border-b border-r">
+        <div className="flex flex-col h-[calc(100%-24px)] bg-[#171717] border-l border-black/60 w-[96px] flex-shrink-0 select-none font-pp-ui mt-6 relative z-10 box-border border-b border-r border-r-black/60 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
             {/* Header */}
-            <div className="text-center py-1 bg-pp-dark border-b border-black/30">
-                <span className="text-[9px] text-pp-text font-bold tracking-tighter">MIXER</span>
+            <div className="text-center py-1 bg-[#212121] border-b border-black/40">
+                <span className="text-[10px] text-white font-bold tracking-wider">MIXER</span>
             </div>
 
             {/* VU Meter area */}
-            <div className="flex-1 flex flex-col items-center justify-center px-1 py-1 relative h-full pt-4">
+            <div className="flex-1 flex flex-col items-center justify-center px-2 py-1 relative h-full pt-4">
                 {/* dB Scale */}
-                <div className="absolute left-0.5 top-5 bottom-8 flex flex-col justify-between text-[8px] text-pp-text-dim text-right w-4 font-bold select-none cursor-default pb-[2px]">
+                <div className="absolute left-1 top-5 bottom-8 flex flex-col justify-between text-[9px] text-gray-200 text-right w-6 font-bold select-none cursor-default pb-[2px]">
                     {dbMarks.map(db => (
                         <span key={db} className="leading-none">{db}</span>
                     ))}
                 </div>
 
                 {/* Stereo Meter Bars */}
-                <div className="flex gap-[2px] h-full justify-center ml-[20px] w-[14px] pb-5">
+                <div className="flex gap-[4px] h-full justify-center ml-[24px] w-[30px] pb-5">
                     {/* Left channel */}
-                    <div className="w-[6px] h-full bg-[#111] rounded-[1px] relative overflow-hidden border border-black/60 shadow-inner">
+                    <div className="w-[13px] h-full bg-[#0f0f0f] rounded-[2px] relative overflow-hidden border border-black/70 shadow-inner">
                         <div
                             className="absolute bottom-0 w-full transition-all duration-[50ms]"
                             style={{
                                 height: `${masterLevel * 100}%`,
                                 background: 'linear-gradient(to top, #00ff00 0%, #00ff00 70%, #ffeb3b 85%, #ff0000 100%)',
-                                opacity: 0.9
+                                opacity: 0.98
                             }}
                         />
                         {/* Peak indicator */}
@@ -111,13 +111,13 @@ const AudioMixerPanel: React.FC<AudioMixerPanelProps> = ({
                         </div>
                     </div>
                     {/* Right channel */}
-                    <div className="w-[6px] h-full bg-[#111] rounded-[1px] relative overflow-hidden border border-black/60 shadow-inner">
+                    <div className="w-[13px] h-full bg-[#0f0f0f] rounded-[2px] relative overflow-hidden border border-black/70 shadow-inner">
                         <div
                             className="absolute bottom-0 w-full transition-all duration-[50ms] delay-[10ms]"
                             style={{
                                 height: `${(masterLevel * 0.92 + (isPlaying ? 0.03 : 0)) * 100}%`,
                                 background: 'linear-gradient(to top, #00ff00 0%, #00ff00 70%, #ffeb3b 85%, #ff0000 100%)',
-                                opacity: 0.9
+                                opacity: 0.98
                             }}
                         />
                         {masterLevel * 0.92 > 0.95 && (
@@ -134,9 +134,9 @@ const AudioMixerPanel: React.FC<AudioMixerPanelProps> = ({
             </div>
 
             {/* L/R Labels */}
-            <div className="absolute bottom-1 w-full flex justify-center gap-[2px] ml-[8px]">
-                <span className="text-[8px] text-pp-text-dim w-[6px] text-center font-bold">L</span>
-                <span className="text-[8px] text-pp-text-dim w-[6px] text-center font-bold">R</span>
+            <div className="absolute bottom-1 w-full flex justify-center gap-[4px] ml-[12px]">
+                <span className="text-[9px] text-gray-200 w-[13px] text-center font-bold">L</span>
+                <span className="text-[9px] text-gray-200 w-[13px] text-center font-bold">R</span>
             </div>
         </div>
     );

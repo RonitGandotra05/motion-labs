@@ -1906,7 +1906,7 @@ function App() {
               </div>
 
               {/* Audio Meters */}
-              <div className="flex-none flex flex-col bg-pp-dark min-h-0 relative w-[80px]">
+              <div className="flex-none flex flex-col bg-pp-dark min-h-0 relative w-[112px]">
                 <AudioMixerPanel
                   tracks={project.tracks}
                   elements={project.elements}
