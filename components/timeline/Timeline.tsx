@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Track, EditorElement, Marker } from '../../types';
 import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import TimelineTrack from './TimelineTrack';
@@ -78,6 +78,7 @@ const Timeline: React.FC<TimelineProps> = ({
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   // Playhead Drag State
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
@@ -99,6 +100,26 @@ const Timeline: React.FC<TimelineProps> = ({
   const [selectedGap, setSelectedGap] = useState<{ trackId: number; gapStart: number; gapEnd: number } | null>(null);
 
   const getTrackRowHeight = (track: Track) => track.type === 'audio' ? 58 : 40;
+  const [viewportWidth, setViewportWidth] = useState(0);
+
+  useEffect(() => {
+    if (!scrollViewportRef.current) return;
+
+    const updateViewportWidth = () => {
+      const width = scrollViewportRef.current?.clientWidth ?? 0;
+      setViewportWidth(width);
+    };
+
+    updateViewportWidth();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateViewportWidth) : null;
+    observer?.observe(scrollViewportRef.current);
+    window.addEventListener('resize', updateViewportWidth);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateViewportWidth);
+    };
+  }, []);
 
   // Helper: Find all snap points
   const findSnapPoints = useCallback((excludeElementId: string): number[] => {
@@ -402,19 +423,62 @@ const Timeline: React.FC<TimelineProps> = ({
   };
 
   const rulerTicks = [];
-  const maxTime = Math.max(duration, 60);
+  const contentEndTime = elements.reduce((maxEnd, el) => Math.max(maxEnd, el.startTime + el.duration), duration);
+  const maxTime = Math.max(contentEndTime, 60);
   const totalWidth = maxTime * pixelsPerSecond + 500;
   const tickInterval = getTickInterval(pixelsPerSecond);
+  const maxZoomPps = 2000;
+  const minZoomPps = useMemo(() => {
+    const drawableWidth = Math.max(140, viewportWidth - TIMELINE_TRACK_HEADER_WIDTH - 40);
+    return Math.max(0.5, drawableWidth / maxTime);
+  }, [maxTime, viewportWidth]);
+
+  useEffect(() => {
+    if (pixelsPerSecond < minZoomPps) {
+      setPixelsPerSecond(minZoomPps);
+    }
+  }, [minZoomPps, pixelsPerSecond, setPixelsPerSecond]);
+
+  const toZoomSliderValue = useCallback((pps: number) => {
+    if (maxZoomPps <= minZoomPps) return 100;
+    const clamped = Math.max(minZoomPps, Math.min(maxZoomPps, pps));
+    const ratio = (Math.log(clamped) - Math.log(minZoomPps)) / (Math.log(maxZoomPps) - Math.log(minZoomPps));
+    return ratio * 100;
+  }, [maxZoomPps, minZoomPps]);
+
+  const fromZoomSliderValue = useCallback((value: number) => {
+    if (maxZoomPps <= minZoomPps) return maxZoomPps;
+    const t = Math.max(0, Math.min(100, value)) / 100;
+    const expValue = Math.exp(Math.log(minZoomPps) + t * (Math.log(maxZoomPps) - Math.log(minZoomPps)));
+    return Math.max(minZoomPps, Math.min(maxZoomPps, expValue));
+  }, [maxZoomPps, minZoomPps]);
+
+  const majorTickHeightClass = 'h-[24px]';
+  const minorTickHeightClass = 'h-[12px]';
+  const minorDivisions = pixelsPerSecond >= 180 ? 10 : pixelsPerSecond >= 80 ? 5 : pixelsPerSecond >= 28 ? 4 : 2;
 
   for (let i = 0; i < maxTime; i += tickInterval) {
     rulerTicks.push(
-      <div
-        key={i}
-        className="absolute top-0 bottom-0 border-l border-pp-border text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono"
-        style={{ left: i * pixelsPerSecond }}
-      >
-        {formatTime(i)}
-      </div>
+      <React.Fragment key={i}>
+        <div
+          className={`absolute top-0 border-l border-white/35 text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono ${majorTickHeightClass}`}
+          style={{ left: i * pixelsPerSecond }}
+        >
+          {formatTime(i)}
+        </div>
+        {Array.from({ length: minorDivisions - 1 }, (_, minorIndex) => {
+          const minorStep = tickInterval / minorDivisions;
+          const minorTime = i + ((minorIndex + 1) * minorStep);
+          if (minorTime >= maxTime) return null;
+          return (
+            <div
+              key={`${i}-${minorIndex}`}
+              className={`absolute top-0 border-l border-white/15 ${minorTickHeightClass}`}
+              style={{ left: minorTime * pixelsPerSecond }}
+            />
+          );
+        })}
+      </React.Fragment>
     );
   }
 
@@ -456,17 +520,26 @@ const Timeline: React.FC<TimelineProps> = ({
               Delete Gaps
             </button>
           )}
-          <button onClick={() => setPixelsPerSecond(Math.max(10, pixelsPerSecond - 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
+          <button onClick={() => setPixelsPerSecond(Math.max(minZoomPps, pixelsPerSecond / 1.18))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
             <ZoomOutIcon className="w-3 h-3" />
           </button>
-          <input type="range" min="0.5" max="2000" step="0.5" value={pixelsPerSecond} onChange={(e) => setPixelsPerSecond(Number(e.target.value))} className="pp-slider w-16" data-tip="Timeline Zoom Level" />
-          <button onClick={() => setPixelsPerSecond(Math.min(200, pixelsPerSecond + 20))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom In (+)">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            value={toZoomSliderValue(pixelsPerSecond)}
+            onChange={(e) => setPixelsPerSecond(fromZoomSliderValue(Number(e.target.value)))}
+            className="pp-slider w-16"
+            data-tip="Timeline Zoom Level"
+          />
+          <button onClick={() => setPixelsPerSecond(Math.min(maxZoomPps, pixelsPerSecond * 1.18))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom In (+)">
             <ZoomInIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      <div className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
+      <div ref={scrollViewportRef} className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
         <div className="relative min-w-full" style={{ width: `${totalWidth + TIMELINE_TRACK_HEADER_WIDTH}px` }}>
 
           {/* Ruler - Premiere Pro style */}
