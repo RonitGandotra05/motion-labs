@@ -80,7 +80,9 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, clipDuration, mediaOffset
         const startSample = Math.floor(clampedOffset * audioBuffer.sampleRate);
         const endSample = Math.min(audioBuffer.length, Math.ceil(endTime * audioBuffer.sampleRate));
         const visibleSamples = Math.max(1, endSample - startSample);
-        const samplesPerPixel = Math.max(1, Math.floor(visibleSamples / renderWidth));
+        const baseSamplesPerPixel = Math.max(1, Math.floor(visibleSamples / renderWidth));
+        const horizontalResolution = renderWidth * 2; // oversample horizontal bins for crisper rendering
+        const samplesPerBin = Math.max(1, Math.floor(visibleSamples / horizontalResolution));
         const channelData = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) => audioBuffer.getChannelData(index));
 
         canvas.width = renderWidth * dpr;
@@ -93,20 +95,36 @@ const Waveform: React.FC<WaveformProps> = ({ audioUrl, clipDuration, mediaOffset
         ctx.globalAlpha = 1;
         ctx.fillRect(0, centerY, renderWidth, 1);
 
-        for (let x = 0; x < renderWidth; x++) {
-            const chunkStart = startSample + (x * samplesPerPixel);
-            const chunkEnd = Math.min(endSample, chunkStart + samplesPerPixel);
-            let peak = 0;
+        for (let bin = 0; bin < horizontalResolution; bin++) {
+            const chunkStart = startSample + (bin * samplesPerBin);
+            const chunkEnd = Math.min(endSample, chunkStart + Math.max(samplesPerBin, baseSamplesPerPixel));
+            if (chunkStart >= chunkEnd) continue;
+
+            let peakMax = 0;
+            let peakMin = 0;
+            let sumSquares = 0;
+            let sampleCount = 0;
 
             for (let sampleIndex = chunkStart; sampleIndex < chunkEnd; sampleIndex++) {
                 for (const channel of channelData) {
-                    const amplitude = Math.abs(channel[sampleIndex] || 0);
-                    if (amplitude > peak) peak = amplitude;
+                    const value = channel[sampleIndex] || 0;
+                    if (value > peakMax) peakMax = value;
+                    if (value < peakMin) peakMin = value;
+                    sumSquares += value * value;
+                    sampleCount++;
                 }
             }
 
-            const barHeight = Math.max(1.5, peak * (renderHeight * 0.48));
-            ctx.fillRect(x, centerY - barHeight, 1, barHeight * 2);
+            const rms = sampleCount > 0 ? Math.sqrt(sumSquares / sampleCount) : 0;
+            const peak = Math.max(Math.abs(peakMax), Math.abs(peakMin));
+            const combined = Math.max(peak * 0.75, rms * 0.95);
+            const amplitudeHeight = Math.max(1, combined * (renderHeight * 0.48));
+            const x = (bin / horizontalResolution) * renderWidth;
+            const barWidth = renderWidth / horizontalResolution + 0.35;
+            const top = Math.max(0, centerY - amplitudeHeight);
+            const bottom = Math.min(renderHeight, centerY + amplitudeHeight);
+
+            ctx.fillRect(x, top, barWidth, Math.max(1, bottom - top));
         }
     }, [audioBuffer, clipDuration, color, height, mediaOffset]);
 
