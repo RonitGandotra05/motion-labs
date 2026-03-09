@@ -4,7 +4,7 @@ Motion Labs is a browser-based video editor built with React and Vite. It combin
 
 ## Live Demo
 
-- [https://motionlabz.netlify.app/](https://motionlabz.netlify.app/)
+- [https://motionlabzz.netlify.app/](https://motionlabzz.netlify.app/)
 
 ## Current Layout
 
