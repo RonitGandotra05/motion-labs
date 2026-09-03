@@ -4,10 +4,11 @@ interface MenuBarProps {
     onSave?: () => void;
     onLoad?: () => void;
     onExport?: () => void;
+    onExportAudio?: () => void;
     onShowShortcuts?: () => void;
 }
 
-const MenuBar: React.FC<MenuBarProps> = ({ onSave, onLoad, onExport, onShowShortcuts }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ onSave, onLoad, onExport, onExportAudio, onShowShortcuts }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [activeWorkspace, setActiveWorkspace] = useState('Editing');
 
@@ -22,6 +23,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ onSave, onLoad, onExport, onShowShort
                 { label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: onSave },
                 { type: 'separator' as const },
                 { label: 'Export Media...', shortcut: 'Ctrl+M', action: onExport },
+                { label: 'Export Audio...', action: onExportAudio },
             ]
         },
         {

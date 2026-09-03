@@ -13,13 +13,31 @@ export interface ExportPreset {
   bitrateMbps: number;
 }
 
+export type ExportMediaType = 'video' | 'audio';
+
 export interface ExportOptions {
   filename: string;
-  fps: number;
-  presetId: ExportPreset['id'];
-  mimeType: string;
-  bitrateMbps: number;
+  mediaType?: ExportMediaType;
+  // Video-specific options
+  fps?: number;
+  presetId?: ExportPreset['id'];
+  mimeType?: string;
+  bitrateMbps?: number;
+  // Audio-specific options
+  audioFormatId?: 'wav' | 'webm' | 'm4a';
+  sampleRate?: 44100 | 48000;
+  channels?: 1 | 2;
+  bitrateKbps?: number;
 }
+
+export {
+  exportProjectAudio,
+  getSupportedAudioFormats,
+  audioBufferToWav,
+  type ExportAudioFormatOption,
+  type ExportAudioOptions,
+  type ExportAudioRenderRequest
+} from './exportAudio';
 
 interface ExportRenderRequest {
   elements: EditorElement[];
@@ -498,7 +516,12 @@ export const exportProjectVideo = async ({
     throw new Error('MediaRecorder is not supported in this browser.');
   }
 
-  const { width, height } = getExportDimensions(aspectRatio, options.presetId);
+  const fps = options.fps || 30;
+  const presetId = options.presetId || 'full-hd';
+  const bitrateMbps = options.bitrateMbps || 14;
+  const mimeType = options.mimeType || 'video/webm';
+
+  const { width, height } = getExportDimensions(aspectRatio, presetId);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -540,15 +563,15 @@ export const exportProjectVideo = async ({
     audioNodes.set(element.id, gain);
   });
 
-  const canvasStream = canvas.captureStream(options.fps);
+  const canvasStream = canvas.captureStream(fps);
   const mixedStream = new MediaStream([
     ...canvasStream.getVideoTracks(),
     ...destination.stream.getAudioTracks()
   ]);
 
   const recorder = new MediaRecorder(mixedStream, {
-    mimeType: options.mimeType,
-    videoBitsPerSecond: Math.round(options.bitrateMbps * 1_000_000)
+    mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : undefined,
+    videoBitsPerSecond: Math.round(bitrateMbps * 1_000_000)
   });
 
   const chunks: BlobPart[] = [];

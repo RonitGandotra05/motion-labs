@@ -19,7 +19,14 @@ import { saveProjectToFile, openProjectFilePicker } from './utils/projectFile';
 import { historyManager, HistoryState } from './utils/history';
 import KeyboardShortcutsModal from './components/ui/KeyboardShortcutsModal';
 import ExportModal from './components/ui/ExportModal';
-import { exportProjectVideo, getExportPresets, getSupportedExportFormats, type ExportOptions } from './utils/exportVideo';
+import {
+  exportProjectVideo,
+  exportProjectAudio,
+  getExportPresets,
+  getSupportedExportFormats,
+  getSupportedAudioFormats,
+  type ExportOptions
+} from './utils/exportVideo';
 
 const OLD_STORAGE_KEY = 'reactframe_project'; // For migration from localStorage
 const DEFAULT_PREVIEW_ASPECT_RATIO = 16 / 9;
@@ -37,6 +44,7 @@ function App() {
   const appRef = useRef<HTMLDivElement>(null);
   const desktopWorkspaceRef = useRef<HTMLDivElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportInitialType, setExportInitialType] = useState<'video' | 'audio' | undefined>(undefined);
   const previewRef = useRef<VideoPreviewHandle>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(PIXELS_PER_SECOND_DEFAULT);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -65,6 +73,7 @@ function App() {
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
   const exportPresets = getExportPresets();
   const supportedExportFormats = getSupportedExportFormats();
+  const supportedAudioFormats = getSupportedAudioFormats();
 
   const parseAspectRatio = (ratio: string) => {
     const [width, height] = ratio.split(':').map(Number);
@@ -615,6 +624,20 @@ function App() {
             selectedElementId: newElement.id
           }));
         }
+        return;
+      }
+
+      // Export Media: Ctrl+M / Cmd+M
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'm' || e.key === 'M') && !e.shiftKey) {
+        e.preventDefault();
+        handleExport();
+        return;
+      }
+
+      // Export Audio: Ctrl+Shift+M / Cmd+Shift+M
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'm' || e.key === 'M') && e.shiftKey) {
+        e.preventDefault();
+        handleExportAudio();
         return;
       }
 
@@ -1469,28 +1492,57 @@ function App() {
     }));
   };
 
-  const handleExport = () => {
+  const handleExport = (mode?: 'video' | 'audio') => {
+    setExportInitialType(mode);
     setIsExportModalOpen(true);
   };
 
+  const handleExportAudio = () => {
+    handleExport('audio');
+  };
+
   const startExport = async (options: ExportOptions) => {
-    if (supportedExportFormats.length === 0) {
+    const isAudioExport = options.mediaType === 'audio';
+
+    if (!isAudioExport && supportedExportFormats.length === 0) {
       alert('This browser does not support video export with MediaRecorder.');
       return;
     }
 
     try {
       setProject(prev => ({ ...prev, isExporting: true, isPlaying: false, currentTime: 0 }));
-      await exportProjectVideo({
-        elements: project.elements,
-        duration: project.duration,
-        aspectRatio: previewAspectRatio,
-        options,
-        onProgress: (currentTime) => {
-          setProject(prev => ({ ...prev, currentTime }));
-        }
-      });
+
+      if (isAudioExport) {
+        await exportProjectAudio({
+          elements: project.elements,
+          tracks: project.tracks,
+          duration: project.duration,
+          options: {
+            filename: options.filename,
+            formatId: options.audioFormatId || 'wav',
+            mimeType: options.mimeType || 'audio/wav',
+            sampleRate: options.sampleRate || 48000,
+            channels: options.channels || 2,
+            bitrateKbps: options.bitrateKbps || 256
+          },
+          onProgress: (progress) => {
+            setProject(prev => ({ ...prev, currentTime: progress * project.duration }));
+          }
+        });
+      } else {
+        await exportProjectVideo({
+          elements: project.elements,
+          duration: project.duration,
+          aspectRatio: previewAspectRatio,
+          options,
+          onProgress: (currentTime) => {
+            setProject(prev => ({ ...prev, currentTime }));
+          }
+        });
+      }
+
       setIsExportModalOpen(false);
+      setExportInitialType(undefined);
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : 'Export failed.');
@@ -1565,7 +1617,8 @@ function App() {
       <MenuBar
         onSave={handleSaveProject}
         onLoad={handleLoadProject}
-        onExport={handleExport}
+        onExport={() => handleExport()}
+        onExportAudio={handleExportAudio}
         onShowShortcuts={() => setShowKeyboardShortcuts(true)}
       />
 
@@ -1932,13 +1985,20 @@ function App() {
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <ExportModal
         isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setExportInitialType(undefined);
+        }}
         onExport={startExport}
         duration={project.duration}
         aspectRatio={previewAspectRatio}
         formats={supportedExportFormats}
+        audioFormats={supportedAudioFormats}
         presets={exportPresets}
         isExporting={project.isExporting}
+        elements={project.elements}
+        tracks={project.tracks}
+        initialExportType={exportInitialType}
       />
     </div>
   );
