@@ -82,19 +82,19 @@ const MonitorTransport: React.FC<MonitorTransportProps> = ({
 
       <div className="flex items-center justify-center gap-1">
         <button type="button" onClick={() => onSeek(0)} className="pp-transport-btn" disabled={disabled} aria-label="Go to start" data-tip="Go to Start">
-          <span className="text-[10px]">⏮</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 5h2v14H5zM19 5v14l-10-7z" /></svg>
         </button>
         <button type="button" onClick={() => onSeek(clampTime(currentTime - stepAmount, duration))} className="pp-transport-btn" disabled={disabled} aria-label="Previous frame" data-tip="Step Back">
-          <span className="text-[10px]">◀</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 5v14L7 12z" /></svg>
         </button>
         <button type="button" onClick={onTogglePlay} aria-label={isPlaying ? 'Pause' : 'Play'} className="transport-play pp-transport-btn h-8 w-8" disabled={disabled} data-tip={isPlaying ? 'Pause' : 'Play'}>
           {isPlaying ? <PauseIcon className="h-3.5 w-3.5" /> : <PlayIcon className="h-3.5 w-3.5" />}
         </button>
         <button type="button" onClick={() => onSeek(clampTime(currentTime + stepAmount, duration))} className="pp-transport-btn" disabled={disabled} aria-label="Next frame" data-tip="Step Forward">
-          <span className="text-[10px]">▶</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5l10 7-10 7z" /></svg>
         </button>
         <button type="button" onClick={() => onSeek(duration)} className="pp-transport-btn" disabled={disabled} aria-label="Go to end" data-tip="Go to End">
-          <span className="text-[10px]">⏭</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 5h2v14h-2zM5 5l10 7-10 7z" /></svg>
         </button>
       </div>
     </div>

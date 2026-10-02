@@ -66,7 +66,7 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
     const isImage = clip?.type === ElementType.IMAGE;
 
     return (
-        <div className="relative flex flex-1 flex-col overflow-hidden bg-pp-darkest transition-colors h-full w-full">
+        <div className="source-monitor relative flex flex-1 flex-col overflow-hidden bg-pp-darkest transition-colors h-full w-full">
             {/* Preview area */}
             <div className="flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0">
                 {!clip ? (
@@ -119,6 +119,7 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
                 stepAmount={1 / 30}
                 leftControls={(
                     <select
+                        aria-label="Source zoom"
                         value={monitorZoom}
                         onChange={(e) => setMonitorZoom(e.target.value as any)}
                         className="bg-pp-dark border border-pp-border rounded px-2 py-0.5 text-[11px] text-pp-text outline-none cursor-pointer"

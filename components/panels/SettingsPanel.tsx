@@ -56,7 +56,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="Paste your Gemini API key"
-            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-pp-border-light transition-colors"
           />
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             Stored locally in your browser (localStorage). Never sent anywhere except to Gemini.
@@ -79,7 +79,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             )}
             <button
               onClick={handleSave}
-              className="text-xs px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition"
+              className="text-xs px-3 py-2 rounded bg-pp-accent hover:bg-pp-accent-hover text-[var(--pp-on-accent)] transition"
             >
               Save
             </button>

@@ -146,14 +146,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                         {exportMediaType === 'audio' ? (
-                            <MusicIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <MusicIcon className="w-5 h-5 text-pp-text-bright dark:text-blue-400" />
                         ) : (
-                            <VideoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <VideoIcon className="w-5 h-5 text-pp-text-bright dark:text-blue-400" />
                         )}
                         {exportMediaType === 'audio' ? 'Export Audio' : 'Export Video'}
                     </h2>
                     {isAudioOnly && (
-                        <span className="text-[11px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-medium bg-pp-light text-pp-text-bright dark:bg-pp-light dark:text-pp-text-bright px-2 py-0.5 rounded-full">
                             Audio-only timeline
                         </span>
                     )}
@@ -204,7 +204,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                 type="text"
                                 value={filename}
                                 onChange={(e) => setFilename(e.target.value)}
-                                className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-l px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-l px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-pp-border-light"
                                 placeholder={exportMediaType === 'audio' ? 'My Audio' : 'My Video'}
                             />
                             <span className="bg-gray-100 dark:bg-gray-800 border-y border-r border-gray-300 dark:border-gray-700 rounded-r px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[58px] text-center">
@@ -224,7 +224,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                             key={preset.id}
                                             onClick={() => setPresetId(preset.id)}
                                             className={`rounded border px-3 py-2 text-left text-sm transition ${presetId === preset.id
-                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                 : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                         >
@@ -245,7 +245,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                             key={rate}
                                             onClick={() => setFps(rate)}
                                             className={`py-2 rounded border text-sm font-medium transition ${fps === rate
-                                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                                    ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                         >
@@ -265,7 +265,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                     <select
                                         value={formatMimeType}
                                         onChange={(e) => setFormatMimeType(e.target.value)}
-                                        className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                        className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-pp-border-light dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                                     >
                                         {formats.map((format) => (
                                             <option key={format.mimeType} value={format.mimeType}>
@@ -276,7 +276,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                 )}
                             </div>
 
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-800 dark:text-blue-200">
+                            <div className="p-3 bg-pp-light rounded text-xs text-pp-text-bright">
                                 <p>Estimated Duration: {Math.round(duration * 10) / 10} seconds</p>
                                 <p className="mt-1 opacity-75">Output: {dimensions.width}x{dimensions.height} at {fps} FPS</p>
                                 <p className="mt-1 opacity-75">Codec: {formats.find((format) => format.mimeType === formatMimeType)?.label || 'WebM'}</p>
@@ -297,7 +297,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                             onClick={() => setAudioFormatId(format.id)}
                                             className={`rounded border px-3 py-2 text-left text-sm transition ${
                                                 audioFormatId === format.id
-                                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                                    ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                             }`}
                                         >
@@ -322,7 +322,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                                 onClick={() => setSampleRate(rate as 44100 | 48000)}
                                                 className={`py-2 rounded border text-xs font-medium transition ${
                                                     sampleRate === rate
-                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                         : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                             >
@@ -342,7 +342,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                                 onClick={() => setChannels(ch as 1 | 2)}
                                                 className={`py-2 rounded border text-xs font-medium transition ${
                                                     channels === ch
-                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                         : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                             >
@@ -364,7 +364,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                                 onClick={() => setAudioBitrateKbps(rate)}
                                                 className={`py-1.5 rounded border text-xs font-medium transition ${
                                                     audioBitrateKbps === rate
-                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        ? 'bg-pp-accent border-pp-border-light text-[var(--pp-on-accent)]'
                                                         : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                             >
@@ -375,7 +375,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                                 </div>
                             )}
 
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-800 dark:text-blue-200">
+                            <div className="p-3 bg-pp-light rounded text-xs text-pp-text-bright">
                                 <p>Estimated Duration: {Math.round(duration * 10) / 10} seconds</p>
                                 <p className="mt-1 opacity-75">
                                     Output: {selectedAudioFormat?.label || 'WAV'} ({sampleRate / 1000} kHz, {channels === 2 ? 'Stereo' : 'Mono'})
@@ -396,8 +396,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
                     <button
                         onClick={handleExportClick}
                         disabled={isExportDisabled}
-                        className={`px-4 py-2 rounded text-sm font-medium text-white transition shadow-sm flex items-center gap-2 ${
-                            isExportDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                        className={`px-4 py-2 rounded text-sm font-medium text-[var(--pp-on-accent)] transition shadow-sm flex items-center gap-2 ${
+                            isExportDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-pp-accent hover:bg-pp-accent-hover'
                         }`}
                     >
                         <DownloadIcon className="w-4 h-4" />

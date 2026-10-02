@@ -111,14 +111,14 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                 {/* Basic Info */}
                 <div className="space-y-1">
                     <label className="text-[11px] text-pp-text font-semibold flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-sm bg-blue-500"></span>
+                        <span className="w-2 h-2 rounded-sm bg-pp-accent"></span>
                         {element.name}
                     </label>
                     <input
                         type="text"
                         value={element.name}
                         onChange={(e) => onUpdate(element.id, { name: e.target.value })}
-                        className="w-full bg-pp-dark border border-black/40 rounded-sm px-1.5 py-0.5 text-[11px] text-pp-text focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-pp-dark border border-black/40 rounded-sm px-1.5 py-0.5 text-[11px] text-pp-text focus:outline-none focus:border-pp-border-light transition-colors"
                     />
                 </div>
 
@@ -131,7 +131,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 key={color}
                                 onClick={() => onUpdate(element.id, { clipColor: color })}
                                 className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${element.clipColor === color || (!element.clipColor && color === 'none')
-                                    ? 'border-white dark:border-gray-300 ring-2 ring-blue-500'
+                                    ? 'border-white dark:border-gray-300 ring-2 ring-pp-border-light'
                                     : 'border-transparent'
                                     }`}
                                 style={{
@@ -155,7 +155,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         <div className="flex gap-2">
                             <button
                                 onClick={() => onUpdate(element.id, { zIndex: (element.zIndex ?? 0) + 1 })}
-                                className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300 transition"
+                                className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-pp-light border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300 transition"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -164,7 +164,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                             </button>
                             <button
                                 onClick={() => onUpdate(element.id, { zIndex: Math.max(0, (element.zIndex ?? 0) - 1) })}
-                                className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300 transition"
+                                className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-pp-light border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300 transition"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -268,7 +268,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 type="checkbox"
                                 checked={element.props.isMuted || false}
                                 onChange={(e) => handleChange('isMuted', e.target.checked)}
-                                className="rounded bg-pp-dark border-black/40 text-blue-500 focus:ring-blue-500"
+                                className="rounded bg-pp-dark border-black/40 text-blue-500 focus:ring-pp-border-light"
                             />
                             <span className="text-[11px] text-pp-text">Mute Audio</span>
                         </div>
@@ -307,7 +307,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         {(element.type === ElementType.VIDEO || element.type === ElementType.AUDIO) && (
                             <button
                                 onClick={() => handleChange('isReversed', !element.props.isReversed)}
-                                className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.isReversed ? 'bg-pp-accent text-white border-blue-800' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
+                                className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.isReversed ? 'bg-pp-accent text-[var(--pp-on-accent)] border-pp-border-light' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
                             >
                                 <span>⏪</span>
                                 <span>Reverse Playback</span>
@@ -332,7 +332,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     type="checkbox"
                                     checked={element.props.ducking || false}
                                     onChange={(e) => handleChange('ducking', e.target.checked)}
-                                    className="rounded bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                                    className="rounded bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-pp-text-bright focus:ring-pp-border-light"
                                 />
                                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Audio Ducking (Voiceover)</span>
                             </label>
@@ -374,7 +374,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         {/* Preserve Pitch Toggle */}
                         <button
                             onClick={() => handleChange('preservePitch', !element.props.preservePitch)}
-                            className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.preservePitch ? 'bg-pp-accent text-white border-blue-800' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
+                            className={`w-full py-1.5 border rounded-[2px] text-[10px] transition flex items-center justify-center space-x-1 ${element.props.preservePitch ? 'bg-pp-accent text-[var(--pp-on-accent)] border-pp-border-light' : 'bg-pp-dark text-pp-text border-black/40 hover:bg-pp-medium'}`}
                         >
                             <span>🎵</span>
                             <span>Preserve Pitch</span>
@@ -417,23 +417,23 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pl-3 border-l border-white/5 ml-1.5">
                             <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-pp-text-dim">Position X</span>
-                                <input type="number" value={Math.round(element.x)} onChange={(e) => handleGeometryChange('x', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
+                                <input type="number" value={Math.round(element.x)} onChange={(e) => handleGeometryChange('x', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-pp-border-light" />
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-pp-text-dim">Position Y</span>
-                                <input type="number" value={Math.round(element.y)} onChange={(e) => handleGeometryChange('y', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
+                                <input type="number" value={Math.round(element.y)} onChange={(e) => handleGeometryChange('y', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-pp-border-light" />
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-pp-text-dim">Width (%)</span>
-                                <input type="number" value={Math.round(element.width)} onChange={(e) => handleGeometryChange('width', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
+                                <input type="number" value={Math.round(element.width)} onChange={(e) => handleGeometryChange('width', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-pp-border-light" />
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-pp-text-dim">Height (%)</span>
-                                <input type="number" value={Math.round(element.height)} onChange={(e) => handleGeometryChange('height', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
+                                <input type="number" value={Math.round(element.height)} onChange={(e) => handleGeometryChange('height', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-pp-border-light" />
                             </div>
                             <div className="flex justify-between items-center col-span-2">
                                 <span className="text-[10px] text-pp-text-dim">Rotation (°)</span>
-                                <input type="number" value={Math.round(element.rotation)} onChange={(e) => handleGeometryChange('rotation', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-blue-500" />
+                                <input type="number" value={Math.round(element.rotation)} onChange={(e) => handleGeometryChange('rotation', Number(e.target.value))} className="w-16 bg-pp-dark border border-black/40 rounded-[2px] px-1 py-0.5 text-[10px] text-pp-text text-right focus:outline-none focus:border-pp-border-light" />
                             </div>
                         </div>
 
@@ -445,7 +445,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 0 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↑</button>
                                 <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 0 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↗</button>
                                 <button onClick={() => onUpdate(element.id, { x: 0, y: 50 - element.height / 2 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">←</button>
-                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 50 - element.height / 2 })} className="px-1 py-1 bg-blue-600 border border-blue-700 hover:bg-blue-500 rounded-sm text-[10px] text-white text-center leading-none">⊙</button>
+                                <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 50 - element.height / 2 })} className="px-1 py-1 bg-pp-accent border border-pp-border-light hover:bg-pp-accent rounded-sm text-[10px] text-[var(--pp-on-accent)] text-center leading-none">⊙</button>
                                 <button onClick={() => onUpdate(element.id, { x: 100 - element.width, y: 50 - element.height / 2 })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">→</button>
                                 <button onClick={() => onUpdate(element.id, { x: 0, y: 100 - element.height })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↙</button>
                                 <button onClick={() => onUpdate(element.id, { x: 50 - element.width / 2, y: 100 - element.height })} className="px-1 py-1 bg-pp-dark border border-black/30 hover:bg-pp-medium rounded-sm text-[10px] text-pp-text-dim text-center leading-none">↓</button>
@@ -466,7 +466,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     </button>
                                     <button
                                         onClick={() => applyMediaFitMode('fill')}
-                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'fill' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'fill' ? 'bg-pp-light text-pp-text-bright border-pp-border-light' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                                     >
                                         Fill
                                     </button>
@@ -478,7 +478,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                     </button>
                                     <button
                                         onClick={() => applyMediaFitMode('set-to-frame')}
-                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'set-to-frame' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                        className={`py-1.5 rounded border text-xs transition ${element.props.mediaFitMode === 'set-to-frame' ? 'bg-pp-light text-pp-text-bright border-pp-border-light' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                                     >
                                         Set to Frame
                                     </button>
@@ -497,7 +497,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         {(element.type === ElementType.VIDEO || element.type === ElementType.IMAGE) && element.props.sourceAspectRatio && (
                             <button
                                 onClick={resetToNativeAspectRatio}
-                                className="w-full py-1.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded text-xs transition flex items-center justify-center space-x-1"
+                                className="w-full py-1.5 bg-pp-light text-pp-text-bright border border-pp-border-light hover:bg-pp-light rounded text-xs transition flex items-center justify-center space-x-1"
                             >
                                 <span>▣</span>
                                 <span>Reset to Native Ratio</span>
@@ -534,14 +534,14 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                         <div className="flex gap-2 pt-1">
                             <button
                                 onClick={() => onUpdate(element.id, { flipX: !element.flipX })}
-                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipX ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipX ? 'bg-pp-light text-pp-text-bright border-pp-border-light' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                             >
                                 <span>↔</span>
                                 <span>Flip H</span>
                             </button>
                             <button
                                 onClick={() => onUpdate(element.id, { flipY: !element.flipY })}
-                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipY ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                className={`flex-1 py-1.5 border rounded text-xs transition flex items-center justify-center space-x-1 ${element.flipY ? 'bg-pp-light text-pp-text-bright border-pp-border-light' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                             >
                                 <span>↕</span>
                                 <span>Flip V</span>
@@ -782,7 +782,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         type="range" min="-1" max="1" step="0.05"
                                         value={element.props.liftB ?? 0}
                                         onChange={(e) => handleChange('liftB', Number(e.target.value))}
-                                        className="w-full h-1.5 bg-blue-200 dark:bg-blue-900 rounded-lg appearance-none cursor-pointer"
+                                        className="w-full h-1.5 bg-pp-light rounded-lg appearance-none cursor-pointer"
                                     />
                                 </div>
                             </div>
@@ -816,7 +816,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         type="range" min="-1" max="1" step="0.05"
                                         value={element.props.gammaB ?? 0}
                                         onChange={(e) => handleChange('gammaB', Number(e.target.value))}
-                                        className="w-full h-1.5 bg-blue-200 dark:bg-blue-900 rounded-lg appearance-none cursor-pointer"
+                                        className="w-full h-1.5 bg-pp-light rounded-lg appearance-none cursor-pointer"
                                     />
                                 </div>
                             </div>
@@ -850,7 +850,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                         type="range" min="-1" max="1" step="0.05"
                                         value={element.props.gainB ?? 0}
                                         onChange={(e) => handleChange('gainB', Number(e.target.value))}
-                                        className="w-full h-1.5 bg-blue-200 dark:bg-blue-900 rounded-lg appearance-none cursor-pointer"
+                                        className="w-full h-1.5 bg-pp-light rounded-lg appearance-none cursor-pointer"
                                     />
                                 </div>
                             </div>
@@ -924,7 +924,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                 <textarea
                                     value={element.props.text || ''}
                                     onChange={(e) => handleChange('text', e.target.value)}
-                                    className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1.5 py-1 text-[11px] text-pp-text h-20 focus:outline-none focus:border-blue-500"
+                                    className="w-full bg-pp-dark border border-black/40 rounded-[2px] px-1.5 py-1 text-[11px] text-pp-text h-20 focus:outline-none focus:border-pp-border-light"
                                 />
                             </div>
                         )}
@@ -1016,7 +1016,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
                                             <button
                                                 key={align}
                                                 onClick={() => handleChange('textAlign', align)}
-                                                className={`flex-1 py-1.5 border rounded text-xs transition ${element.props.textAlign === align ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                                className={`flex-1 py-1.5 border rounded text-xs transition ${element.props.textAlign === align ? 'bg-pp-light text-pp-text-bright border-pp-border-light' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                                             >
                                                 {align === 'left' ? '◀' : align === 'center' ? '⬛' : '▶'}
                                             </button>

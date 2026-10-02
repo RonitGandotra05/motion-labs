@@ -39,7 +39,7 @@ function App() {
   const MIN_TIMELINE_HEIGHT = 180;
   const MIN_WORKSPACE_HEIGHT = 240;
 
-  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
 
   const appRef = useRef<HTMLDivElement>(null);
   const desktopWorkspaceRef = useRef<HTMLDivElement>(null);
@@ -55,8 +55,7 @@ function App() {
   const [isRestoring, setIsRestoring] = useState(true);
   const [timelineHeight, setTimelineHeight] = useState(() => Math.min(340, Math.max(240, Math.round(window.innerHeight * 0.38))));
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
-  const [topLeftPanelWidth, setTopLeftPanelWidth] = useState(380);
-  const [bottomLeftPanelWidth, setBottomLeftPanelWidth] = useState(320);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(340);
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const [isResizingTopLeft, setIsResizingTopLeft] = useState(false);
   const [isResizingBottomLeft, setIsResizingBottomLeft] = useState(false);
@@ -344,23 +343,24 @@ function App() {
       if (isResizingTimeline && appRect && workspaceRect) {
         const maxTimelineHeight = Math.max(
           MIN_TIMELINE_HEIGHT,
-          appRect.bottom - workspaceRect.top - MIN_WORKSPACE_HEIGHT
+          workspaceRect.height - MIN_WORKSPACE_HEIGHT - 8
         );
-        const newHeight = clamp(appRect.bottom - e.clientY, MIN_TIMELINE_HEIGHT, maxTimelineHeight);
+        const newHeight = clamp(workspaceRect.bottom - e.clientY - 4, MIN_TIMELINE_HEIGHT, maxTimelineHeight);
         setTimelineHeight(newHeight);
       }
 
       if (workspaceRect) {
+        const maxSharedLeftWidth = Math.min(MAX_SIDE_PANEL_WIDTH, workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH - 54 - (window.innerWidth >= 1200 ? 108 : 0));
         if (isResizingTopLeft) {
-          const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+          const maxLeftWidth = maxSharedLeftWidth;
           const newWidth = clamp(e.clientX - workspaceRect.left, MIN_SIDE_PANEL_WIDTH, maxLeftWidth);
-          setTopLeftPanelWidth(newWidth);
+          setLeftPanelWidth(newWidth);
         }
 
         if (isResizingBottomLeft) {
-          const maxLeftWidth = workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH;
+          const maxLeftWidth = maxSharedLeftWidth;
           const newWidth = clamp(e.clientX - workspaceRect.left, MIN_SIDE_PANEL_WIDTH, maxLeftWidth);
-          setBottomLeftPanelWidth(newWidth);
+          setLeftPanelWidth(newWidth);
         }
 
         if (isResizingRight) {
@@ -404,19 +404,17 @@ function App() {
       const appRect = appRef.current?.getBoundingClientRect();
 
       if (workspaceRect) {
-        const maxLeftWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
+        const maxLeftWidth = Math.min(MAX_SIDE_PANEL_WIDTH, workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH - 54 - (window.innerWidth >= 1200 ? 108 : 0));
         const maxRightWidth = workspaceRect.width - MIN_PREVIEW_WIDTH;
-        const maxBottomLeftWidth = workspaceRect.width - MIN_TIMELINE_CONTENT_WIDTH;
 
-        setTopLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
-        setBottomLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxBottomLeftWidth));
+        setLeftPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxLeftWidth));
         setRightPanelWidth(prev => clamp(prev, MIN_SIDE_PANEL_WIDTH, maxRightWidth));
       }
 
       if (workspaceRect && appRect) {
         const maxTimelineHeight = Math.max(
           MIN_TIMELINE_HEIGHT,
-          appRect.bottom - workspaceRect.top - MIN_WORKSPACE_HEIGHT
+          workspaceRect.height - MIN_WORKSPACE_HEIGHT - 8
         );
         setTimelineHeight(prev => clamp(prev, MIN_TIMELINE_HEIGHT, maxTimelineHeight));
       }
@@ -1791,11 +1789,11 @@ function App() {
           {/* Upper workspace: Tools + Panels + Monitors */}
           <div ref={desktopWorkspaceRef} className="workspace-rows flex flex-1 flex-col overflow-hidden gap-[3px]">
             {/* Top Row: Source Monitor + Program Monitor */}
-            <div className="workspace-top flex overflow-hidden w-full gap-[2px]" style={{ flex: '1 1 55%', minHeight: 0 }}>
+            <div className="workspace-top relative flex overflow-hidden w-full gap-[2px]" style={{ flex: '1 1 55%', minHeight: 0 }}>
               {/* Top Left: Source Monitor Area (Effect Controls, Lumetri Color) */}
               <div
                 className="editor-panel flex-none flex flex-col overflow-hidden bg-pp-dark relative"
-                style={{ width: `${topLeftPanelWidth}px` }}
+                style={{ width: `${leftPanelWidth}px` }}
               >
                 {/* Panel tabs */}
                 <div className="panel-heading h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30">
@@ -1842,14 +1840,13 @@ function App() {
                     />
                   )}
                 </div>
-
-                {/* Left resize handle */}
-                <div
-                  className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize z-30 pp-resize-handle"
-                  style={{ left: `${topLeftPanelWidth - 2}px` }}
-                  onMouseDown={() => setIsResizingTopLeft(true)}
-                />
               </div>
+              <div
+                className="workspace-column-resizer cursor-ew-resize z-30 pp-resize-handle"
+                style={{ left: `${leftPanelWidth}px` }}
+                onMouseDown={() => setIsResizingTopLeft(true)}
+                data-tip="Resize source and project panels"
+              />
 
               {/* Top Right: Program Monitor */}
               <div className="editor-panel min-w-0 flex-1 flex flex-col bg-pp-darkest relative">
@@ -1885,7 +1882,7 @@ function App() {
               {/* Bottom Left: Project Bin / Effects */}
               <div
                 className="editor-panel flex-none flex flex-col bg-pp-dark min-h-0 relative"
-                style={{ width: `${bottomLeftPanelWidth}px` }}
+                style={{ width: `${leftPanelWidth}px` }}
               >
                 {/* Panel tabs */}
                 <div className="panel-heading h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30 overflow-x-auto no-scrollbar">
@@ -1911,7 +1908,7 @@ function App() {
                         setSourceClip(clip);
                         setActiveRightTab('source');
                       }}
-                      panelWidth={bottomLeftPanelWidth}
+                      panelWidth={leftPanelWidth}
                       onOpenSettings={() => setIsSettingsOpen(true)}
                     />
                   ) : (
@@ -1921,12 +1918,11 @@ function App() {
               </div>
 
               <div
-                className="relative z-40 flex-none w-2 cursor-ew-resize pp-resize-handle"
+                className="workspace-column-resizer z-40 cursor-ew-resize pp-resize-handle"
+                style={{ left: `${leftPanelWidth}px` }}
                 onMouseDown={() => setIsResizingBottomLeft(true)}
                 data-tip="Resize project bin"
-              >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/50" />
-              </div>
+              />
 
               {/* Tools Panel */}
               <ToolsPanel
@@ -1942,7 +1938,7 @@ function App() {
 
               {/* Timeline resize handle */}
               <div
-                className="absolute top-0 left-0 right-0 h-[5px] cursor-ns-resize z-50 pp-resize-handle group"
+                className="workspace-row-resizer absolute left-0 right-0 cursor-ns-resize z-50 pp-resize-handle group"
                 onMouseDown={() => setIsResizingTimeline(true)}
               >
                 <div className="absolute left-1/2 top-0 -translate-x-1/2 w-16 h-[3px] rounded-full bg-pp-border group-hover:bg-pp-accent transition-colors" />

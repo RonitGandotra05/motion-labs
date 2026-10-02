@@ -1,3 +1,5 @@
+import colors from 'tailwindcss/colors';
+
 const token = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
 const surfaces = {
   darkest: 'canvas', dark: 'panel', medium: 'raised', light: 'hover', lighter: 'border',
@@ -18,7 +20,7 @@ export default {
           'clip-video': '#4a7fb5', 'clip-audio': '#4caf50', 'clip-text': '#e57373',
           'clip-image': '#ab47bc', 'clip-adjustment': '#ff9800', playhead: '#ff5252'
         },
-        gray: { 750: '#2d3748', 850: '#1a202c', 950: '#0d1117' }
+        gray: { ...colors.neutral, 750: '#333333', 850: '#202020', 950: '#0a0a0a' }
       },
       fontFamily: {
         pp: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],

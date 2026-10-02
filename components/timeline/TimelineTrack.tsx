@@ -72,7 +72,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
         {/* Source patch col */}
         <div className="source-patch flex flex-col justify-center items-center w-[30px] border-r border-[var(--pp-border)] h-full pr-1 shrink-0">
           <button
-            className="track-target w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
+            className="track-target w-[22px] h-[20px] bg-pp-light hover:bg-pp-lighter flex items-center justify-center text-pp-text-bright text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
             data-tip={isAudioTrack ? `Audio source patch ${label}` : `Video source patch ${label}`}
           >
             {label}
@@ -104,7 +104,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
 
           {/* Track targeting button */}
           <button
-            className="track-target w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
+            className="track-target w-[22px] h-[20px] bg-pp-light hover:bg-pp-lighter flex items-center justify-center text-pp-text-bright text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
             data-tip="Track Targeting"
           >
             {label}

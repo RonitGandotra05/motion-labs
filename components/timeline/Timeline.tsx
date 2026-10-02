@@ -592,7 +592,7 @@ const Timeline: React.FC<TimelineProps> = ({
               <div className="text-pp-accent font-pp-mono text-[16px] tracking-wider mb-2">
                 {formatTimecode(currentTime)}
               </div>
-              <div className="flex items-center space-x-[14px] text-gray-500">
+              <div className="timeline-display-tools flex items-center gap-1 text-pp-text-dim">
                 {/* 1. Nesting */}
                 <button data-tip="Insert and overwrite sequences as nests or individual clips" className="flex items-center justify-center outline-none hover:text-white cursor-pointer bg-transparent border-none p-0">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16v16H4z" /><path d="M4 10h16" /><path d="M10 4v16" /></svg>
@@ -600,7 +600,9 @@ const Timeline: React.FC<TimelineProps> = ({
                 {/* 2. Magnet (Snap) */}
                 <button
                   onClick={onToggleSnap}
-                  className={`flex items-center justify-center outline-none ${snapEnabled ? 'text-[#448aff]' : 'hover:text-white'} cursor-pointer bg-transparent border-none p-0`}
+                  className={`flex items-center justify-center outline-none ${snapEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'hover:text-white'} cursor-pointer bg-transparent border-none p-0`}
+                  aria-label="Snap in timeline"
+                  aria-pressed={snapEnabled}
                   data-tip="Snap in Timeline (S)"
                 >
                   <MagnetIcon className="w-3.5 h-3.5" />
@@ -773,7 +775,7 @@ const Timeline: React.FC<TimelineProps> = ({
                       <div className="absolute inset-0 bg-pp-accent/20 hover:bg-pp-accent/40 transition-colors" />
                       <button
                         onClick={() => onInsertTrack(track.id)}
-                        className="relative z-10 flex items-center space-x-1 bg-pp-accent hover:bg-pp-accent-hover text-white text-[10px] px-2 py-0.5 rounded-full shadow-lg transform scale-90 hover:scale-100 transition-all"
+                        className="relative z-10 flex items-center space-x-1 bg-pp-accent hover:bg-pp-accent-hover text-[var(--pp-on-accent)] text-[10px] px-2 py-0.5 rounded-full shadow-lg transform scale-90 hover:scale-100 transition-all"
                       >
                         <span className="font-bold">+</span>
                         <span>Add Track</span>

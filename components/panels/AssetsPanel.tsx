@@ -959,9 +959,9 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   <div className="bg-[var(--pp-bg-medium)] p-2 rounded">
                     <h4 className="text-[9px] font-bold text-gray-500 mb-1 uppercase">AI Component</h4>
                     <div className="flex gap-1">
-                      <input className="flex-1 bg-[var(--pp-bg-darkest)] border border-[var(--pp-border)] rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-blue-500"
+                      <input className="flex-1 bg-[var(--pp-bg-darkest)] border border-[var(--pp-border)] rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-pp-border-light"
                         placeholder="e.g. Ringing Bell" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-                      <button onClick={handleComponentGenerate} disabled={isGenerating} className="bg-blue-600 hover:bg-blue-500 text-[10px] px-2 py-1 rounded text-white disabled:opacity-50 transition-colors whitespace-nowrap" data-tip="Generate AI Component">
+                      <button onClick={handleComponentGenerate} disabled={isGenerating} className="bg-pp-accent hover:bg-pp-accent-hover text-[10px] px-2 py-1 rounded text-[var(--pp-on-accent)] disabled:opacity-50 transition-colors whitespace-nowrap" data-tip="Generate AI Component">
                         {isGenerating ? '...' : 'Go'}
                       </button>
                     </div>
@@ -975,15 +975,15 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
 
         {activeTab === 'image' && (
           <div className="p-3 space-y-4">
-            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16162a] p-4 rounded border border-[#2a2a4a] transition-colors">
-              <h3 className="text-[11px] text-indigo-300 font-bold mb-3 flex items-center"><SparklesIcon className="w-3.5 h-3.5 mr-1.5" /> AI Image Generation</h3>
+            <div className="bg-pp-medium p-4 rounded border border-pp-border transition-colors">
+              <h3 className="text-[11px] text-pp-text-bright font-bold mb-3 flex items-center"><SparklesIcon className="w-3.5 h-3.5 mr-1.5" /> AI Image Generation</h3>
               <textarea
-                className="w-full bg-[#111122] border border-[#333355] rounded p-2 text-[11px] text-white mb-3 focus:outline-none focus:border-indigo-500 resize-none placeholder-gray-600"
+                className="w-full bg-pp-darkest border border-pp-border rounded p-2 text-[11px] text-white mb-3 focus:outline-none focus:border-pp-border-light resize-none placeholder-gray-600"
                 rows={3} placeholder="A cyberpunk dog eating noodles..."
                 value={imgPrompt} onChange={(e) => setImgPrompt(e.target.value)}
                 disabled={isGenerating}
               />
-              <button onClick={handleImageGenerate} disabled={isGenerating || !imgPrompt.trim()} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-[11px] font-bold text-white transition disabled:opacity-50 flex items-center justify-center" data-tip="Generate image using AI">
+              <button onClick={handleImageGenerate} disabled={isGenerating || !imgPrompt.trim()} className="w-full py-2 bg-pp-accent hover:bg-pp-accent-hover rounded text-[11px] font-bold text-[var(--pp-on-accent)] transition disabled:opacity-50 flex items-center justify-center" data-tip="Generate image using AI">
                 {isGenerating ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
