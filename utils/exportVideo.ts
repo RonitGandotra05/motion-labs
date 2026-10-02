@@ -141,7 +141,6 @@ const loadMediaElement = async <T extends HTMLMediaElement>(element: T, src: str
   element.src = src;
   element.crossOrigin = 'anonymous';
   element.muted = true;
-  element.playsInline = true;
   element.setAttribute('playsinline', 'true');
 
   if (element.readyState >= 1) return element;

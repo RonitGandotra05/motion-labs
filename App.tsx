@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LayersIcon, DownloadIcon, SunIcon, MoonIcon, SaveIcon, FolderOpenIcon } from './components/ui/Icons';
+import { LayersIcon, PlusIcon, ScissorsIcon, TrashIcon, VideoIcon, FolderOpenIcon } from './components/ui/Icons';
 import AssetsPanel from './components/panels/AssetsPanel';
 import SettingsPanel from './components/panels/SettingsPanel';
 import PropertiesPanel from './components/panels/PropertiesPanel';
@@ -53,10 +53,10 @@ function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
-  const [timelineHeight, setTimelineHeight] = useState(300);
+  const [timelineHeight, setTimelineHeight] = useState(() => Math.min(340, Math.max(240, Math.round(window.innerHeight * 0.38))));
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
-  const [topLeftPanelWidth, setTopLeftPanelWidth] = useState(500);
-  const [bottomLeftPanelWidth, setBottomLeftPanelWidth] = useState(340);
+  const [topLeftPanelWidth, setTopLeftPanelWidth] = useState(380);
+  const [bottomLeftPanelWidth, setBottomLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const [isResizingTopLeft, setIsResizingTopLeft] = useState(false);
   const [isResizingBottomLeft, setIsResizingBottomLeft] = useState(false);
@@ -69,7 +69,7 @@ function App() {
   const [sourceClip, setSourceClip] = useState<SourceClip | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'timeline' | 'assets' | 'properties'>('timeline');
   const [toolMode, setToolMode] = useState<ToolMode>('pointer');
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 960);
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
   const exportPresets = getExportPresets();
   const supportedExportFormats = getSupportedExportFormats();
@@ -198,7 +198,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 600);
+    const handleResize = () => setIsMobile(window.innerWidth < 960);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -449,6 +449,7 @@ function App() {
         elements: previousState.elements,
         tracks: previousState.tracks,
         markers: previousState.markers,
+        selectedElementIds: [],
         selectedElementId: null
       }));
     }
@@ -466,6 +467,7 @@ function App() {
         elements: nextState.elements,
         tracks: nextState.tracks,
         markers: nextState.markers,
+        selectedElementIds: [],
         selectedElementId: null
       }));
     }
@@ -474,13 +476,22 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest('[role="dialog"]')) return;
       // Ignore if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
         return;
       }
 
+      if (e.key === '?') {
+        e.preventDefault();
+        setShowKeyboardShortcuts(true);
+        return;
+      }
+      // Let focused controls keep their native keyboard activation.
+      if ((e.key === ' ' || e.key === 'Enter') && (e.target as HTMLElement)?.closest('button, a')) return;
+
       // Undo/Redo: Cmd+Z / Cmd+Shift+Z
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
@@ -743,7 +754,7 @@ function App() {
   };
 
   const handleSeek = useCallback((time: number) => {
-    setProject(prev => ({ ...prev, currentTime: time }));
+    setProject(prev => ({ ...prev, currentTime: clamp(time, 0, prev.duration) }));
   }, []);
 
   const handleUpdateDuration = useCallback((duration: number) => {
@@ -897,6 +908,7 @@ function App() {
   };
 
   const handleAddElement = async (type: ElementType, customProps?: any, overrideTrackId?: number, overrideStartTime?: number) => {
+    saveToHistory();
     const id = Math.random().toString(36).substr(2, 9);
     const startTime = overrideStartTime !== undefined ? overrideStartTime : project.currentTime;
     const tracksSnapshot = [...project.tracks].sort((a, b) => a.id - b.id);
@@ -912,7 +924,7 @@ function App() {
     switch (type) {
       case ElementType.TEXT:
         name = "Text Layer";
-        defaultProps = { text: "Double Click Edit", color: isDarkMode ? "#ffffff" : "#000000", fontSize: 24, backgroundColor: "transparent" };
+        defaultProps = { text: "Your title here", color: "#ffffff", fontSize: 24, backgroundColor: "transparent" };
         break;
       case ElementType.SHAPE:
         name = "Rectangle";
@@ -1121,6 +1133,7 @@ function App() {
   };
 
   const handleDeleteElement = (id: string) => {
+    saveToHistory();
     setProject(prev => ({
       ...prev,
       elements: prev.elements.filter(el => el.id !== id),
@@ -1130,6 +1143,7 @@ function App() {
   };
 
   const handleSplit = () => {
+    saveToHistory();
     const time = project.currentTime;
     setProject(prev => {
       const newElements = [...prev.elements];
@@ -1612,7 +1626,7 @@ function App() {
   const selectedElement = project.elements.find(el => el.id === project.selectedElementId) || null;
 
   return (
-    <div ref={appRef} className="flex h-screen flex-col overflow-hidden bg-pp-darkest text-pp-text">
+    <div ref={appRef} className="editor-shell flex flex-col overflow-hidden bg-pp-darkest text-pp-text">
       {/* Premiere Pro Menu Bar */}
       <MenuBar
         onSave={handleSaveProject}
@@ -1620,35 +1634,43 @@ function App() {
         onExport={() => handleExport()}
         onExportAudio={handleExportAudio}
         onShowShortcuts={() => setShowKeyboardShortcuts(true)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onToggleTheme={toggleTheme}
+        isDarkMode={isDarkMode}
+        activeWorkspace={activeRightTab}
+        onWorkspaceChange={setActiveRightTab}
+        clipCount={project.elements.length}
       />
 
       {isMobile ? (
         /* ========================= MOBILE LAYOUT ========================= */
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="compact-editor flex flex-1 flex-col overflow-hidden">
           {/* Mobile Tab Bar */}
-          <div className="flex h-10 border-b border-black/30 bg-pp-dark z-10 shrink-0">
+          <div role="tablist" aria-label="Editor panels" className="mobile-tabs flex h-10 border-b border-black/30 bg-pp-dark z-10 shrink-0">
             <button
-              onClick={() => setActiveMobileTab('timeline')}
+              role="tab" aria-selected={activeMobileTab === 'timeline'} aria-controls="compact-panel" onClick={() => setActiveMobileTab('timeline')}
               className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'timeline' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
             >
-              Timeline
+              <VideoIcon /> Timeline
             </button>
             <button
-              onClick={() => setActiveMobileTab('assets')}
+              role="tab" aria-selected={activeMobileTab === 'assets'} aria-controls="compact-panel" onClick={() => setActiveMobileTab('assets')}
               className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'assets' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
             >
-              Project
+              <FolderOpenIcon /> Media
             </button>
             <button
-              onClick={() => setActiveMobileTab('properties')}
+              role="tab" aria-selected={activeMobileTab === 'properties'} aria-controls="compact-panel" onClick={() => { setActiveMobileTab('properties'); setActiveRightTab('properties'); }}
               className={`flex-1 text-[11px] font-medium transition-colors ${activeMobileTab === 'properties' ? 'text-pp-accent border-b-2 border-pp-accent' : 'text-pp-text-dim'}`}
             >
-              Properties
+              <LayersIcon /> Properties
             </button>
           </div>
 
           {/* Mobile Preview */}
-          <div className="h-[40vh] shrink-0 border-b border-black/30 flex flex-col bg-pp-darkest relative min-w-0">
+          <div className="compact-preview h-[40vh] shrink-0 border-b border-black/30 flex flex-col bg-pp-darkest relative min-w-0">
             <VideoPreview
               ref={previewRef}
               currentTime={project.currentTime}
@@ -1664,13 +1686,21 @@ function App() {
               onAspectRatioChange={applyPreviewAspectRatio}
               onResetSelectedMediaToFrame={resetSelectedMediaToFrame}
               duration={project.duration}
+              onAddMedia={() => setActiveMobileTab('assets')}
             />
           </div>
 
+          <div className="compact-tools" aria-label="Quick editing actions">
+            <button onClick={() => setActiveMobileTab('assets')}><PlusIcon /> Add media</button>
+            <button onClick={() => handleAddElement(ElementType.TEXT)}><span aria-hidden="true">T</span> Add text</button>
+            <button onClick={handleSplit} disabled={!project.elements.some(el => project.currentTime > el.startTime && project.currentTime < el.startTime + el.duration)}><ScissorsIcon /> Split</button>
+            <button onClick={() => selectedElement && handleDeleteElement(selectedElement.id)} disabled={!selectedElement}><TrashIcon /> Delete</button>
+          </div>
+
           {activeMobileTab === 'assets' && (
-            <div className="flex-1 overflow-hidden bg-pp-dark">
+            <div id="compact-panel" role="tabpanel" aria-label="Media" className="compact-panel flex-1 overflow-hidden bg-pp-dark">
               <AssetsPanel
-                onAddElement={handleAddElement}
+                onAddElement={(type, props) => { void handleAddElement(type, props); setActiveMobileTab('timeline'); }}
                 onUploadMedia={handleUploadMedia}
                 panelWidth={window.innerWidth}
                 onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1679,20 +1709,20 @@ function App() {
           )}
 
           {activeMobileTab === 'properties' && (
-            <div className="flex flex-1 flex-col overflow-hidden bg-pp-dark">
-              <div className="h-[28px] border-b border-black/30 bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0">
-                <div
+            <div id="compact-panel" role="tabpanel" aria-label="Properties" className="compact-panel flex flex-1 flex-col overflow-hidden bg-pp-dark">
+              <div className="panel-heading h-[28px] border-b border-black/30 bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0">
+                <button type="button"
                   onClick={() => setActiveRightTab('properties')}
                   className={`pp-panel-tab ${activeRightTab === 'properties' ? 'active' : ''}`}
                 >
-                  Effect Controls
-                </div>
-                <div
+                  Properties
+                </button>
+                <button type="button"
                   onClick={() => setActiveRightTab('color')}
                   className={`pp-panel-tab ${activeRightTab === 'color' ? 'active' : ''}`}
                 >
-                  Lumetri Color
-                </div>
+                  Color
+                </button>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {activeRightTab === 'properties' ? (
@@ -1714,8 +1744,9 @@ function App() {
           )}
 
           {activeMobileTab === 'timeline' && (
-            <div className="flex-1 w-full bg-pp-darkest relative z-40">
+            <div id="compact-panel" role="tabpanel" aria-label="Timeline" className="compact-panel flex-1 w-full bg-pp-darkest relative">
               <Timeline
+                trackHeaderWidth={156}
                 tracks={project.tracks}
                 elements={project.elements}
                 currentTime={project.currentTime}
@@ -1757,36 +1788,36 @@ function App() {
         </div>
       ) : (
         /* ========================= DESKTOP LAYOUT - PREMIERE PRO ========================= */
-        <div className="flex flex-1 flex-col overflow-hidden bg-black p-[2px] gap-[3px]">
+        <div className="desktop-editor flex flex-1 flex-col overflow-hidden bg-black p-[2px] gap-[3px]">
           {/* Upper workspace: Tools + Panels + Monitors */}
-          <div ref={desktopWorkspaceRef} className="flex flex-1 flex-col overflow-hidden gap-[3px]">
+          <div ref={desktopWorkspaceRef} className="workspace-rows flex flex-1 flex-col overflow-hidden gap-[3px]">
             {/* Top Row: Source Monitor + Program Monitor */}
-            <div className="flex overflow-hidden w-full gap-[2px]" style={{ flex: '1 1 55%', minHeight: 0 }}>
+            <div className="workspace-top flex overflow-hidden w-full gap-[2px]" style={{ flex: '1 1 55%', minHeight: 0 }}>
               {/* Top Left: Source Monitor Area (Effect Controls, Lumetri Color) */}
               <div
-                className="flex-none flex flex-col overflow-hidden bg-pp-dark relative"
+                className="editor-panel flex-none flex flex-col overflow-hidden bg-pp-dark relative"
                 style={{ width: `${topLeftPanelWidth}px` }}
               >
                 {/* Panel tabs */}
-                <div className="h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30">
-                  <div
+                <div className="panel-heading h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30">
+                  <button type="button"
                     onClick={() => setActiveRightTab('source')}
                     className={`pp-panel-tab ${activeRightTab === 'source' ? 'active' : ''}`}
                   >
-                    Source: {sourceClip ? sourceClip.name : '(no clip)'}
-                  </div>
-                  <div
+                    Source
+                  </button>
+                  <button type="button"
                     onClick={() => setActiveRightTab('properties')}
                     className={`pp-panel-tab ${activeRightTab === 'properties' ? 'active' : ''}`}
                   >
-                    Effect Controls
-                  </div>
-                  <div
+                    Properties
+                  </button>
+                  <button type="button"
                     onClick={() => setActiveRightTab('color')}
                     className={`pp-panel-tab ${activeRightTab === 'color' ? 'active' : ''}`}
                   >
-                    Lumetri Color
-                  </div>
+                    Color
+                  </button>
                 </div>
 
                 <div className={`flex-1 ${activeRightTab === 'source' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
@@ -1822,9 +1853,9 @@ function App() {
               </div>
 
               {/* Top Right: Program Monitor */}
-              <div className="min-w-0 flex-1 flex flex-col bg-pp-darkest relative">
+              <div className="editor-panel min-w-0 flex-1 flex flex-col bg-pp-darkest relative">
                 {/* Program Monitor tab */}
-                <div className="h-[28px] bg-pp-medium flex items-center px-2 flex-shrink-0 border-b border-black/30">
+                <div className="panel-heading h-[28px] bg-pp-medium flex items-center px-2 flex-shrink-0 border-b border-black/30">
                   <div className="pp-panel-tab active">Program Monitor</div>
                 </div>
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -1843,33 +1874,34 @@ function App() {
                     onAspectRatioChange={applyPreviewAspectRatio}
                     onResetSelectedMediaToFrame={resetSelectedMediaToFrame}
                     duration={project.duration}
+                    onAddMedia={() => { setActiveLeftBottomTab('project'); requestAnimationFrame(() => document.getElementById('media-import')?.click()); }}
                   />
                 </div>
               </div>
             </div>
 
             {/* Bottom Row: Project + Tools + Timeline + Audio Meters */}
-            <div className="flex overflow-hidden gap-[2px] flex-shrink-0" style={{ height: `${timelineHeight}px` }}>
+            <div className="workspace-bottom flex overflow-hidden gap-[2px] flex-shrink-0" style={{ height: `${timelineHeight}px` }}>
 
               {/* Bottom Left: Project Bin / Effects */}
               <div
-                className="flex-none flex flex-col bg-pp-dark min-h-0 relative"
+                className="editor-panel flex-none flex flex-col bg-pp-dark min-h-0 relative"
                 style={{ width: `${bottomLeftPanelWidth}px` }}
               >
                 {/* Panel tabs */}
-                <div className="h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30 overflow-x-auto no-scrollbar">
-                  <div
+                <div className="panel-heading h-[28px] bg-pp-medium flex items-center px-2 space-x-1 flex-shrink-0 border-b border-black/30 overflow-x-auto no-scrollbar">
+                  <button type="button"
                     onClick={() => setActiveLeftBottomTab('project')}
                     className={`pp-panel-tab ${activeLeftBottomTab === 'project' ? 'active' : ''}`}
                   >
                     Project
-                  </div>
-                  <div
+                  </button>
+                  <button type="button"
                     onClick={() => setActiveLeftBottomTab('effects')}
                     className={`pp-panel-tab ${activeLeftBottomTab === 'effects' ? 'active' : ''}`}
                   >
                     Effects
-                  </div>
+                  </button>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   {activeLeftBottomTab === 'project' ? (
@@ -1918,7 +1950,7 @@ function App() {
               </div>
 
               {/* Timeline */}
-              <div className="flex-1 min-w-0">
+              <div className="editor-panel flex-1 min-w-0">
                 <Timeline
                   tracks={project.tracks}
                   elements={project.elements}
@@ -1959,7 +1991,7 @@ function App() {
               </div>
 
               {/* Audio Meters */}
-              <div className="flex-none flex flex-col bg-pp-dark min-h-0 relative w-[112px]">
+              <div className="editor-panel audio-panel flex-none flex flex-col bg-pp-dark min-h-0 relative w-[112px]">
                 <AudioMixerPanel
                   tracks={project.tracks}
                   elements={project.elements}

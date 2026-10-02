@@ -4,9 +4,10 @@ import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import TimelineTrack from './TimelineTrack';
 import { MousePointerIcon, ScissorsIcon, SlipIcon, RollIcon, ZoomInIcon, ZoomOutIcon, MagnetIcon, CompressIcon, FitIcon } from '../ui/Icons';
 
-export type ToolMode = 'pointer' | 'blade' | 'slip' | 'roll';
+import type { ToolMode } from '../ui/ToolsPanel';
 
 interface TimelineProps {
+  trackHeaderWidth?: number;
   tracks: Track[];
   elements: EditorElement[];
   currentTime: number;
@@ -74,7 +75,8 @@ const Timeline: React.FC<TimelineProps> = ({
   toolMode = 'pointer',
   setToolMode,
   onSplitElement,
-  onUpdateTrack
+  onUpdateTrack,
+  trackHeaderWidth = TIMELINE_TRACK_HEADER_WIDTH
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -169,7 +171,7 @@ const Timeline: React.FC<TimelineProps> = ({
     if (!rulerRef.current) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
     const rect = rulerRef.current.getBoundingClientRect();
-    const x = clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
+    const x = clientX - rect.left - trackHeaderWidth;
     const newTime = Math.max(0, x / pixelsPerSecond);
     onSeek(newTime);
   };
@@ -194,9 +196,9 @@ const Timeline: React.FC<TimelineProps> = ({
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
 
     if (toolMode === 'blade') {
-      if (!containerRef.current || !onSplitElement) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickX = clientX - rect.left - 96;
+      if (!rulerRef.current || !onSplitElement) return;
+      const rect = rulerRef.current.getBoundingClientRect();
+      const clickX = clientX - rect.left - trackHeaderWidth;
       const clickTime = Math.max(0, clickX / pixelsPerSecond);
       onSplitElement(elementId, clickTime);
       return;
@@ -370,7 +372,7 @@ const Timeline: React.FC<TimelineProps> = ({
     const assetId = e.dataTransfer.getData('application/react-frame-asset-id');
     if (assetId && onAddAsset) {
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
+      const x = e.clientX - rect.left - trackHeaderWidth;
       const dropTime = Math.max(0, x / pixelsPerSecond);
       onAddAsset(assetId, trackId, dropTime);
     }
@@ -450,9 +452,9 @@ const Timeline: React.FC<TimelineProps> = ({
   const tickInterval = getTickInterval(pixelsPerSecond);
   const maxZoomPps = 2000;
   const minZoomPps = useMemo(() => {
-    const drawableWidth = Math.max(140, viewportWidth - TIMELINE_TRACK_HEADER_WIDTH - 40);
+    const drawableWidth = Math.max(140, viewportWidth - trackHeaderWidth - 40);
     return Math.max(0.5, drawableWidth / maxTime);
-  }, [maxTime, viewportWidth]);
+  }, [maxTime, viewportWidth, trackHeaderWidth]);
 
   useEffect(() => {
     if (pixelsPerSecond < minZoomPps) {
@@ -486,7 +488,7 @@ const Timeline: React.FC<TimelineProps> = ({
     rulerTicks.push(
       <React.Fragment key={i}>
         <div
-          className={`absolute top-0 border-l border-white/40 text-[9px] text-[#9ca3af] pl-0.5 select-none font-pp-mono ${majorTickHeightClass}`}
+          className={`absolute top-0 border-l border-pp-border-light text-[9px] text-pp-text-dim pl-0.5 select-none font-pp-mono ${majorTickHeightClass}`}
           style={{ left: i * pixelsPerSecond }}
         >
           {formatRulerTime(i, tickInterval)}
@@ -515,7 +517,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
   return (
     <div
-      className="flex flex-col h-full bg-pp-darkest text-pp-text select-none"
+      className="timeline-panel flex flex-col h-full bg-pp-darkest text-pp-text select-none"
       ref={containerRef}
       onClick={() => {
         setGapContextMenu(null);
@@ -524,13 +526,11 @@ const Timeline: React.FC<TimelineProps> = ({
     >
 
       {/* Timeline Header Tab Bar - Premiere Pro style */}
-      <div className="h-[28px] border-b border-[#111111] bg-[#232323] flex items-end px-2 justify-between flex-shrink-0 relative z-10 w-full">
+      <div className="timeline-heading h-[28px] border-b border-[var(--pp-border)] bg-[var(--pp-bg-dark)] flex items-end px-2 justify-between flex-shrink-0 relative z-10 w-full">
         <div className="flex items-center h-full">
           {/* Sequence tab */}
-          <div className="pp-panel-tab active h-full flex items-center shrink-0 gap-2 border-r border-[#111111]" data-tip="Timeline Panel">
-            <span className="text-[10px] text-gray-500 hover:text-white cursor-pointer font-bold pb-0.5" data-tip="Close Timeline Panel">×</span>
-            <span>Timeline: Main Sequence</span>
-            <span className="text-[10px] text-gray-400 hover:text-white cursor-pointer ml-1" data-tip="Timeline Panel Menu">≡</span>
+          <div className="pp-panel-tab active h-full flex items-center shrink-0 gap-2 border-r border-[var(--pp-border)]" data-tip="Timeline Panel">
+            <span>Main sequence</span>
           </div>
         </div>
 
@@ -539,13 +539,13 @@ const Timeline: React.FC<TimelineProps> = ({
           {onCloseGaps && (
             <button
               onClick={onCloseGaps}
-              className="pp-btn mr-2 h-[20px] px-2 py-0 text-[10px]"
+              className="gap-action pp-btn mr-2 h-[20px] px-2 py-0 text-[10px]"
               data-tip="Delete All Gaps"
             >
               Delete Gaps
             </button>
           )}
-          <button onClick={() => setPixelsPerSecond(Math.max(minZoomPps, pixelsPerSecond / 1.18))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom Out (-)">
+          <button onClick={() => setPixelsPerSecond(Math.max(minZoomPps, pixelsPerSecond / 1.18))} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline out" data-tip="Zoom Out">
             <ZoomOutIcon className="w-3 h-3" />
           </button>
           <input
@@ -556,27 +556,28 @@ const Timeline: React.FC<TimelineProps> = ({
             value={toZoomSliderValue(pixelsPerSecond)}
             onChange={(e) => setPixelsPerSecond(fromZoomSliderValue(Number(e.target.value)))}
             className="pp-slider w-16"
+            aria-label="Timeline zoom"
             data-tip="Timeline Zoom Level"
           />
-          <button onClick={() => setPixelsPerSecond(Math.min(maxZoomPps, pixelsPerSecond * 1.18))} className="pp-icon-btn w-[20px] h-[20px]" data-tip="Zoom In (+)">
+          <button onClick={() => setPixelsPerSecond(Math.min(maxZoomPps, pixelsPerSecond * 1.18))} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline in" data-tip="Zoom In">
             <ZoomInIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
       <div ref={scrollViewportRef} className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
-        <div className="relative min-w-full" style={{ width: `${totalWidth + TIMELINE_TRACK_HEADER_WIDTH}px` }}>
+        <div className="relative min-w-full" style={{ width: `${totalWidth + trackHeaderWidth}px` }}>
 
           {/* Ruler - Premiere Pro style */}
           <div
             ref={rulerRef}
-            className="h-[56px] bg-[#232323] border-b border-black/40 relative cursor-pointer"
+            className="h-[56px] bg-[var(--pp-bg-dark)] border-b border-black/40 relative cursor-pointer"
             onMouseDown={handleRulerMouseDown}
             onTouchStart={handleRulerMouseDown}
             onDoubleClick={(e) => {
               if (onAddMarker && rulerRef.current) {
                 const rect = rulerRef.current.getBoundingClientRect();
-                const x = e.clientX - rect.left - TIMELINE_TRACK_HEADER_WIDTH;
+                const x = e.clientX - rect.left - trackHeaderWidth;
                 const time = Math.max(0, x / pixelsPerSecond);
                 onAddMarker(time);
               }
@@ -584,11 +585,11 @@ const Timeline: React.FC<TimelineProps> = ({
           >
             {/* Top-Left Fixed Timecode Block */}
             <div
-              className="h-full border-r border-black/40 absolute left-0 bg-[#1c1c1c] z-20 flex flex-col justify-center px-4 pt-1 cursor-default"
-              style={{ width: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+              className="timeline-ruler-header h-full border-r border-black/40 absolute left-0 bg-[var(--pp-bg-darkest)] z-20 flex flex-col justify-center px-4 pt-1 cursor-default"
+              style={{ width: `${trackHeaderWidth}px` }}
               onMouseDown={e => e.stopPropagation()}
             >
-              <div className="text-[#4e9fd5] font-pp-mono text-[16px] tracking-wider mb-2">
+              <div className="text-pp-accent font-pp-mono text-[16px] tracking-wider mb-2">
                 {formatTimecode(currentTime)}
               </div>
               <div className="flex items-center space-x-[14px] text-gray-500">
@@ -623,7 +624,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
             <div
               className="absolute right-0 bottom-0 h-[24px]"
-              style={{ left: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+              style={{ left: `${trackHeaderWidth}px` }}
             >
               {rulerTicks}
               {/* Markers */}
@@ -664,7 +665,7 @@ const Timeline: React.FC<TimelineProps> = ({
             {/* Playhead */}
             <div
               className="absolute top-0 w-px bg-pp-playhead z-30 pointer-events-none"
-              style={{ left: `${(currentTime * pixelsPerSecond) + TIMELINE_TRACK_HEADER_WIDTH}px`, height: `${totalTrackHeight}px` }}
+              style={{ left: `${(currentTime * pixelsPerSecond) + trackHeaderWidth}px`, height: `${totalTrackHeight}px` }}
             >
               {/* Red triangle at top */}
               <div className="absolute -top-[10px] left-1/2 -translate-x-1/2 w-0 h-0"
@@ -679,7 +680,7 @@ const Timeline: React.FC<TimelineProps> = ({
             {snapIndicator && (
               <div
                 className="absolute top-0 w-0.5 bg-green-400 z-40 pointer-events-none"
-                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + TIMELINE_TRACK_HEADER_WIDTH}px`, height: `${totalTrackHeight}px` }}
+                style={{ left: `${(snapIndicator.time * pixelsPerSecond) + trackHeaderWidth}px`, height: `${totalTrackHeight}px` }}
               >
                 <div className="w-2 h-2 bg-green-400 rounded-full transform -translate-x-1/2 absolute top-0" />
               </div>
@@ -711,6 +712,8 @@ const Timeline: React.FC<TimelineProps> = ({
                   className="relative"
                 >
                   <TimelineTrack
+                    trackHeaderWidth={trackHeaderWidth}
+                    selectedElementIds={selectedElementIds}
                     track={track}
                     elements={elements}
                     currentTime={currentTime}
@@ -735,7 +738,7 @@ const Timeline: React.FC<TimelineProps> = ({
                         : 'border-dashed border-white/10 bg-white/[0.04] hover:border-white/30 hover:bg-white/[0.08]'
                         }`}
                       style={{
-                        left: `${gap.gapStart * pixelsPerSecond + TIMELINE_TRACK_HEADER_WIDTH}px`,
+                        left: `${gap.gapStart * pixelsPerSecond + trackHeaderWidth}px`,
                         width: `${Math.max(8, (gap.gapEnd - gap.gapStart) * pixelsPerSecond)}px`
                       }}
                       onClick={(e) => {
@@ -796,7 +799,7 @@ const Timeline: React.FC<TimelineProps> = ({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setGapContextMenu(null)} />
           <div
-            className="fixed z-50 min-w-[140px] rounded border border-black/40 bg-[#2b2b2b] py-1 shadow-xl"
+            className="fixed z-50 min-w-[140px] rounded border border-black/40 bg-pp-dark py-1 shadow-xl"
             style={{ left: gapContextMenu.x, top: gapContextMenu.y }}
           >
             <button

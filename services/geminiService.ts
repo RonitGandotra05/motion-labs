@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { ElementType, GeneratedComponentConfig } from "../types";
 
 const STORAGE_KEY = "gemini_api_key";
@@ -22,9 +21,9 @@ export const setStoredApiKey = (key?: string) => {
 export const generateComponentConfig = async (prompt: string): Promise<GeneratedComponentConfig | null> => {
   const apiKey = getStoredApiKey();
   if (!apiKey) return null;
-  const ai = new GoogleGenAI({ apiKey });
-
   try {
+    const { GoogleGenAI, Type } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate a custom HTML/CSS animated component based on this description: "${prompt}".
@@ -92,9 +91,9 @@ export const generateComponentConfig = async (prompt: string): Promise<Generated
 export const generateImage = async (prompt: string): Promise<string | null> => {
   const apiKey = getStoredApiKey();
   if (!apiKey) return null;
-  const ai = new GoogleGenAI({ apiKey });
-
   try {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-preview-04-17',
       contents: prompt,

@@ -19,6 +19,8 @@ const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'av
 
 const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, panelWidth, onOpenSettings }) => {
   const [activeTab, setActiveTab] = useState<'library' | 'image'>('library');
+  const [searchQuery, setSearchQuery] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [assetViewMode, setAssetViewMode] = useState<'sequence' | 'grid'>('sequence');
   const [libraryAssets, setLibraryAssets] = useState<MediaAsset[]>([]);
   const [assetPreviewUrls, setAssetPreviewUrls] = useState<Record<string, string>>({});
@@ -283,7 +285,8 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
   };
 
   const handleAddToTimeline = (asset: MediaAsset) => {
-    const url = assetPreviewUrls[asset.id] || URL.createObjectURL(asset.blob);
+    // Timeline media outlives this panel and its revocable thumbnail URLs.
+    const url = URL.createObjectURL(asset.blob);
     onAddElement(asset.type, { src: url, name: asset.name, assetId: asset.id });
   };
 
@@ -662,9 +665,11 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
 
   const [showRecordSection, setShowRecordSection] = useState(false);
 
+  const filteredAssets = libraryAssets.filter(asset => asset.name.toLowerCase().includes(searchQuery.trim().toLowerCase()));
+
   return (
     <div
-      className="relative flex h-full min-w-0 w-full flex-col overflow-x-hidden bg-pp-dark text-pp-text transition-colors"
+      className="assets-panel relative flex h-full min-w-0 w-full flex-col overflow-x-hidden bg-pp-dark text-pp-text transition-colors"
       style={{
         width: panelWidth ? `${panelWidth}px` : '280px',
         maxWidth: '100%'
@@ -749,21 +754,21 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
             {/* ═══════════ SECTION 1: RESOURCE MANAGER ═══════════ */}
             <div className="flex-1 flex flex-col">
               {/* Resource Manager Header Bar */}
-              <div className="flex items-center justify-between px-3 py-[6px] bg-[#1e1e1e] border-b border-[#111] flex-shrink-0">
-                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Resource Manager</span>
+              <div className="asset-toolbar flex items-center justify-between px-3 py-[6px] bg-[var(--pp-bg-darkest)] border-b border-[var(--pp-border)] flex-shrink-0">
+                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Media library</span>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center rounded border border-[#333] bg-[#181818] p-[1px]">
+                  <div className="flex items-center rounded border border-[var(--pp-border)] bg-[var(--pp-bg-darkest)] p-[1px]">
                     <button
                       type="button"
-                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'sequence' ? 'bg-[#2f2f2f] text-white' : 'text-gray-500 hover:text-white'}`}
+                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'sequence' ? 'bg-[var(--pp-bg-light)] text-white' : 'text-gray-500 hover:text-white'}`}
                       onClick={() => setAssetViewMode('sequence')}
                       data-tip="Sequence view"
                     >
-                      Seq
+                      List
                     </button>
                     <button
                       type="button"
-                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'grid' ? 'bg-[#2f2f2f] text-white' : 'text-gray-500 hover:text-white'}`}
+                      className={`px-2 py-0.5 text-[10px] ${assetViewMode === 'grid' ? 'bg-[var(--pp-bg-light)] text-white' : 'text-gray-500 hover:text-white'}`}
                       onClick={() => setAssetViewMode('grid')}
                       data-tip="Grid view"
                     >
@@ -788,13 +793,19 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                       +
                     </button>
                   </div>
-                  <label className="cursor-pointer text-[#5b9bd5] hover:text-[#7cb8e8] text-[10px] flex items-center font-semibold" data-tip="Import media files">
-                    <PlusIcon className="w-3 h-3 mr-1" /> IMPORT
-                    <input type="file" className="hidden" multiple onChange={handleFileUpload} />
+                  <label className="asset-import cursor-pointer text-[#5b9bd5] hover:text-[#7cb8e8] text-[10px] flex items-center font-semibold" data-tip="Import media files">
+                    <PlusIcon className="w-3 h-3 mr-1" /> Import
+                    <input id="media-import" ref={importInputRef} type="file" aria-label="Import media files" className="sr-only" multiple onChange={handleFileUpload} />
                   </label>
                 </div>
               </div>
 
+              {libraryAssets.length > 0 && (
+                <label className="asset-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+                  <input aria-label="Search media" placeholder="Find your media…" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} />
+                </label>
+              )}
               {/* Media List / Drop Zone */}
               <div
                 className="flex-1 min-h-[80px] flex flex-col"
@@ -808,24 +819,24 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   </div>
                 )}
                 {libraryAssets.length === 0 && !importProgress && (
-                  <div className="text-center py-6 text-pp-text-dim text-[10px] italic pointer-events-none px-4">
-                    <p className="mb-1 text-gray-500">No media imported yet.</p>
-                    <p className="text-gray-600">Drag & drop files here or click IMPORT above.</p>
-                    <p className="text-gray-600 mt-2" style={{ fontSize: '9px' }}>
-                      Supports MP4, MOV, MKV, MP3, WAV, FLAC, PNG, JPG, HEIC, TIFF and more.
-                    </p>
+                  <div className="asset-empty">
+                    <UploadIcon />
+                    <strong>A home for your footage</strong>
+                    <p>Drop video, audio, or images here. Your next great edit starts with a single clip.</p>
+                    <button className="asset-import" onClick={() => importInputRef.current?.click()}>Choose files</button>
                   </div>
                 )}
-                <div className={assetViewMode === 'grid' ? 'grid grid-cols-2 gap-2 p-2 md:grid-cols-3' : ''}>
-                  {libraryAssets.map((asset, index) => (
+                {libraryAssets.length > 0 && filteredAssets.length === 0 && <p className="p-4 text-center text-pp-text-dim text-xs">No media matches “{searchQuery}”.</p>}
+                <div className={assetViewMode === 'grid' ? 'grid grid-cols-2 gap-2 p-2' : ''}>
+                  {filteredAssets.map((asset, index) => (
                     <div
                       key={asset.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, asset)}
                       className={
                         assetViewMode === 'grid'
-                          ? `group relative overflow-hidden rounded border border-white/10 bg-[#1d1d1d] cursor-grab active:cursor-grabbing hover:border-[#5b9bd5]/70 hover:bg-[#252d38] transition`
-                          : `group flex items-center gap-3 px-3 py-2 ${index % 2 === 0 ? 'bg-[#232323]' : 'bg-[#1e1e1e]'} hover:bg-[#2a3a4a] transition-colors cursor-grab active:cursor-grabbing border-l-[3px] ${asset.type === ElementType.VIDEO ? 'border-[#6b8aad]' : asset.type === ElementType.AUDIO ? 'border-[#4e9a4e]' : 'border-[#ad7b6b]'}`
+                          ? `group relative overflow-hidden rounded border border-white/10 bg-[var(--pp-bg-darkest)] cursor-grab active:cursor-grabbing hover:border-[#5b9bd5]/70 hover:bg-[#252d38] transition`
+                          : `group flex items-center gap-3 px-3 py-2 ${index % 2 === 0 ? 'bg-[var(--pp-bg-dark)]' : 'bg-[var(--pp-bg-darkest)]'} hover:bg-[#2a3a4a] transition-colors cursor-grab active:cursor-grabbing border-l-[3px] ${asset.type === ElementType.VIDEO ? 'border-[#6b8aad]' : asset.type === ElementType.AUDIO ? 'border-[#4e9a4e]' : 'border-[#ad7b6b]'}`
                       }
                       onClick={() => handlePreviewClip(asset)}
                       onDoubleClick={() => handleAddToTimeline(asset)}
@@ -847,18 +858,13 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                       <div className={assetViewMode === 'grid' ? 'p-2' : 'flex-1 min-w-0 self-stretch py-1'}>
                         <p className="text-[11px] text-gray-200 truncate">{asset.name}</p>
                         <p className="mt-1 text-[9px] uppercase tracking-wide text-gray-500">
-                          {asset.type === ElementType.VIDEO ? 'Double-click to add linked V+A' : asset.type}
+                          {asset.type === ElementType.VIDEO ? 'Video + linked audio' : asset.type}
                         </p>
                       </div>
-                      <button
-                        onClick={(e) => handleDeleteAsset(asset.id, e)}
-                        className={assetViewMode === 'grid'
-                          ? 'absolute right-1 top-1 opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-300 transition bg-black/40'
-                          : 'opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded text-gray-500 transition self-start mt-1'}
-                        data-tip="Delete from project"
-                      >
-                        <TrashIcon className="w-3 h-3" />
-                      </button>
+                      <div className={`asset-actions ${assetViewMode === 'grid' ? 'asset-grid-actions' : ''}`}>
+                        <button className="asset-add" aria-label={`Add ${asset.name} to timeline`} data-tip="Add to timeline" onClick={event => { event.stopPropagation(); handleAddToTimeline(asset); }}><PlusIcon className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => handleDeleteAsset(asset.id, e)} className="p-1 hover:text-red-400 rounded text-pp-text-dim" aria-label={`Delete ${asset.name} from project`} data-tip="Delete from project"><TrashIcon className="w-3 h-3" /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -866,10 +872,10 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
             </div>
 
             {/* ═══════════ SECTION 2: RECORD (Collapsible) ═══════════ */}
-            <div className="border-t border-[#111] flex-shrink-0">
+            <div className="border-t border-[var(--pp-border)] flex-shrink-0">
               <button
                 onClick={() => setShowRecordSection(!showRecordSection)}
-                className="flex items-center justify-between w-full px-3 py-[6px] bg-[#1e1e1e] hover:bg-[#252525] transition-colors text-left"
+                className="flex items-center justify-between w-full px-3 py-[6px] bg-[var(--pp-bg-darkest)] hover:bg-[#252525] transition-colors text-left"
                 data-tip="Toggle Record section"
               >
                 <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Record</span>
@@ -880,10 +886,10 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
               </button>
 
               {showRecordSection && (
-                <div className="grid grid-cols-4 gap-[2px] p-2 bg-[#1a1a1a]">
+                <div className="grid grid-cols-4 gap-[2px] p-2 bg-[var(--pp-bg-darkest)]">
                   <button
                     onClick={() => startRecording(ElementType.VIDEO, 'camera')}
-                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#2d2020] group transition"
+                    className="flex flex-col items-center justify-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#2d2020] group transition"
                     data-tip="Record video from Camera"
                   >
                     <div className="w-7 h-7 rounded-full bg-red-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
@@ -893,7 +899,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   </button>
                   <button
                     onClick={() => startRecording(ElementType.VIDEO, 'screen')}
-                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#202028] group transition"
+                    className="flex flex-col items-center justify-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#202028] group transition"
                     data-tip="Record Screen"
                   >
                     <div className="w-7 h-7 rounded-full bg-purple-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
@@ -903,7 +909,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   </button>
                   <button
                     onClick={() => startRecording(ElementType.AUDIO, 'camera')}
-                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#20202d] group transition"
+                    className="flex flex-col items-center justify-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#20202d] group transition"
                     data-tip="Record Audio"
                   >
                     <div className="w-7 h-7 rounded-full bg-blue-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
@@ -913,7 +919,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   </button>
                   <button
                     onClick={startPhotoCapture}
-                    className="flex flex-col items-center justify-center py-2 bg-[#262626] rounded hover:bg-[#202d20] group transition"
+                    className="flex flex-col items-center justify-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#202d20] group transition"
                     data-tip="Capture Photo"
                   >
                     <div className="w-7 h-7 rounded-full bg-emerald-900/50 flex items-center justify-center mb-1 group-hover:scale-110 transition">
@@ -926,34 +932,34 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
             </div>
 
             {/* ═══════════ SECTION 3: UI COMPONENTS (Collapsible) ═══════════ */}
-            <div className="border-t border-[#111] flex-shrink-0">
+            <div className="border-t border-[var(--pp-border)] flex-shrink-0">
               <details className="group">
-                <summary className="flex items-center justify-between w-full px-3 py-[6px] bg-[#1e1e1e] hover:bg-[#252525] transition-colors cursor-pointer list-none" data-tip="Toggle UI Components section">
+                <summary className="flex items-center justify-between w-full px-3 py-[6px] bg-[var(--pp-bg-darkest)] hover:bg-[#252525] transition-colors cursor-pointer list-none" data-tip="Toggle UI Components section">
                   <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">UI Components</span>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
                     className="text-gray-500 transition-transform group-open:rotate-180">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </summary>
-                <div className="p-2 bg-[#1a1a1a] space-y-2">
+                <div className="p-2 bg-[var(--pp-bg-darkest)] space-y-2">
                   <div className="grid grid-cols-3 gap-[2px]">
-                    <button onClick={() => onAddElement(ElementType.TEXT)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#2a2a3a] transition" data-tip="Add Text element">
+                    <button onClick={() => onAddElement(ElementType.TEXT)} className="flex flex-col items-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#2a2a3a] transition" data-tip="Add Text element">
                       <TypeIcon className="w-4 h-4 mb-0.5 text-blue-400" />
                       <span className="text-[9px] text-gray-400">Text</span>
                     </button>
-                    <button onClick={() => onAddElement(ElementType.SHAPE)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#2a3a2a] transition" data-tip="Add Shape element">
+                    <button onClick={() => onAddElement(ElementType.SHAPE)} className="flex flex-col items-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#2a3a2a] transition" data-tip="Add Shape element">
                       <SquareIcon className="w-4 h-4 mb-0.5 text-green-400" />
                       <span className="text-[9px] text-gray-400">Shape</span>
                     </button>
-                    <button onClick={() => onAddElement(ElementType.ADJUSTMENT)} className="flex flex-col items-center py-2 bg-[#262626] rounded hover:bg-[#3a2a2a] transition" data-tip="Add Adjustment Layer">
+                    <button onClick={() => onAddElement(ElementType.ADJUSTMENT)} className="flex flex-col items-center py-2 bg-[var(--pp-bg-medium)] rounded hover:bg-[#3a2a2a] transition" data-tip="Add Adjustment Layer">
                       <LayersIcon className="w-4 h-4 mb-0.5 text-orange-400" />
                       <span className="text-[9px] text-gray-400">Adjust</span>
                     </button>
                   </div>
-                  <div className="bg-[#262626] p-2 rounded">
+                  <div className="bg-[var(--pp-bg-medium)] p-2 rounded">
                     <h4 className="text-[9px] font-bold text-gray-500 mb-1 uppercase">AI Component</h4>
                     <div className="flex gap-1">
-                      <input className="flex-1 bg-[#1a1a1a] border border-[#333] rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-blue-500"
+                      <input className="flex-1 bg-[var(--pp-bg-darkest)] border border-[var(--pp-border)] rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-blue-500"
                         placeholder="e.g. Ringing Bell" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
                       <button onClick={handleComponentGenerate} disabled={isGenerating} className="bg-blue-600 hover:bg-blue-500 text-[10px] px-2 py-1 rounded text-white disabled:opacity-50 transition-colors whitespace-nowrap" data-tip="Generate AI Component">
                         {isGenerating ? '...' : 'Go'}
@@ -1013,7 +1019,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
         isOpen={deleteConfirm.isOpen}
         onClose={() => setDeleteConfirm({ isOpen: false, assetId: null })}
         onConfirm={confirmDeleteAsset}
-        data-tip="Delete Asset"
+        title="Delete asset"
         message="Are you sure you want to remove this asset from your library? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"

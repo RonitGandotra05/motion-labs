@@ -1,10 +1,12 @@
+import type { Track } from './types';
+
 export const TIMELINE_HEIGHT = 300;
 export const HEADER_HEIGHT = 48;
 export const LEFT_PANEL_WIDTH = 320;
 export const RIGHT_PANEL_WIDTH = 300;
 export const TIMELINE_TRACK_HEADER_WIDTH = 280;
 
-export const DEFAULT_TRACKS = [
+export const DEFAULT_TRACKS: Track[] = [
   { id: 0, name: 'Layer 1', isVisible: true, isLocked: false, type: 'video' },
   { id: 1, name: 'Layer 2', isVisible: true, isLocked: false, type: 'video' },
   { id: 2, name: 'Layer 3', isVisible: true, isLocked: false, type: 'video' },

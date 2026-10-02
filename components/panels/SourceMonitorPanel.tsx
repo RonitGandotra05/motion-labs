@@ -70,10 +70,10 @@ const SourceMonitorPanel: React.FC<SourceMonitorPanelProps> = ({ clip, onInsertT
             {/* Preview area */}
             <div className="flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0">
                 {!clip ? (
-                    <div className="relative bg-black overflow-hidden flex flex-col items-center justify-center text-pp-text-dim/40 text-[11px]"
+                    <div className="source-empty text-pp-text-dim text-[11px]"
                         style={{ width: '80%', aspectRatio: '16/9', maxHeight: '100%' }}
                     >
-                        (no clip selected)
+                        <strong>A closer look</strong><span>Select media in your project to preview it before adding it to the timeline.</span>
                     </div>
                 ) : isVideo ? (
                     <video

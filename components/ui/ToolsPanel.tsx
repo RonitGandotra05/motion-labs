@@ -82,7 +82,7 @@ const tools: { id: ToolMode; label: string; shortcut: string; icon: React.FC<{ c
 
 const ToolsPanel: React.FC<ToolsPanelProps> = ({ activeTool, onToolChange }) => {
     return (
-        <div className="flex flex-col items-center w-[32px] bg-pp-dark py-1 flex-shrink-0">
+        <div className="tools-panel flex flex-col items-center w-[32px] bg-pp-dark py-1 flex-shrink-0">
             {tools.map((tool, index) => {
                 const Icon = tool.icon;
                 const isActive = activeTool === tool.id;
@@ -91,6 +91,8 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ activeTool, onToolChange }) => 
                         <button
                             className={`pp-icon-btn w-[26px] h-[26px] my-[1px] ${isActive ? 'active' : ''}`}
                             onClick={() => onToolChange(tool.id)}
+                            aria-label={`${tool.label} (${tool.shortcut})`}
+                            aria-pressed={isActive}
                             data-tip={`${tool.label} (${tool.shortcut})`}
                         >
                             <Icon className="w-[14px] h-[14px]" />

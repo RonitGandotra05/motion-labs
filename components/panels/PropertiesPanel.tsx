@@ -13,8 +13,9 @@ interface PropertiesPanelProps {
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, onDelete, onSplitAudio, panelWidth, frameAspectRatio = '16:9' }) => {
     if (!element) {
         return (
-            <div className="bg-pp-darkest border-l border-black/50 p-4 text-pp-text-dim text-[11px] flex flex-col items-center justify-center h-full transition-colors font-pp-ui" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
-                <span>No selection</span>
+            <div className="properties-empty bg-pp-darkest p-4 text-pp-text-dim text-[11px] flex flex-col items-center justify-center h-full transition-colors font-pp-ui" style={{ width: panelWidth ? `${panelWidth}px` : '100%' }}>
+                <strong>Make it yours</strong>
+                <p>Select a clip in your timeline to adjust its position, style, sound, and transitions.</p>
             </div>
         );
     }
@@ -98,7 +99,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, onUpdate, on
     const isMedia = element.type === ElementType.VIDEO || element.type === ElementType.AUDIO;
 
     return (
-        <div className="bg-pp-darkest border-l border-black/50 flex flex-col h-full overflow-y-auto custom-scrollbar transition-colors font-pp-ui select-none" style={{ width: panelWidth ? `${panelWidth}px` : '300px' }}>
+        <div className="bg-pp-darkest border-l border-black/50 flex flex-col h-full overflow-y-auto custom-scrollbar transition-colors font-pp-ui select-none" style={{ width: panelWidth ? `${panelWidth}px` : '100%' }}>
             {/* Header Tabs Area */}
             <div className="flex bg-pp-dark border-b border-black/30 w-full overflow-hidden flex-shrink-0">
                 <div className="pp-panel-tab active px-3 py-1 flex-1">

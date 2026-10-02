@@ -3,6 +3,7 @@ import { EditorElement, ElementType } from '../../types';
 import MonitorTransport from '../ui/MonitorTransport';
 
 interface VideoPreviewProps {
+  onAddMedia?: () => void;
   currentTime: number;
   isPlaying: boolean;
   elements: EditorElement[];
@@ -34,9 +35,18 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   aspectRatio,
   onAspectRatioChange,
   onResetSelectedMediaToFrame,
-  duration
+  duration,
+  onAddMedia
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    if (!stageRef.current) return;
+    const observer = new ResizeObserver(([entry]) => setStageSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
+    observer.observe(stageRef.current);
+    return () => observer.disconnect();
+  }, []);
   const aspectRatioPresets = [
     { value: '16:9', label: 'YouTube Thumbnail', detail: 'Thumbnail / landscape' },
     { value: '9:16', label: 'Shorts', detail: 'Vertical video' },
@@ -60,7 +70,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   const selectedMediaZoom = selectedMediaElement?.props.mediaZoom ?? 1;
   const [showSafeMargins, setShowSafeMargins] = useState(false);
   const [showCenterGuide, setShowCenterGuide] = useState(false);
-  const [monitorZoom, setMonitorZoom] = useState<'fit' | 50 | 100 | 200>('fit');
+  const [monitorZoom, setMonitorZoom] = useState<'fit' | '50' | '100' | '200'>('fit');
 
   const getMediaObjectFit = (fitMode?: EditorElement['props']['mediaFitMode']) => {
     switch (fitMode) {
@@ -75,14 +85,14 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
   const getMonitorScale = () => {
     switch (monitorZoom) {
-      case 50:
+      case '50':
         return 0.5;
-      case 100:
+      case '100':
         return 1;
-      case 200:
+      case '200':
         return 2;
       default:
-        return 0.8;
+        return 1;
     }
   };
 
@@ -758,13 +768,23 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
     <div className="relative flex flex-1 flex-col overflow-hidden bg-pp-darkest transition-colors h-full w-full" style={{ zIndex: 1 }}>
       {/* Video preview area */}
       <div
-        className="flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0"
+        ref={stageRef}
+        className="preview-stage relative flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0"
       >
+          {elements.length === 0 && (
+            <div className="preview-empty">
+              <div className="empty-symbol"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m9 6 9 6-9 6z" /></svg></div>
+              <strong>Your next story starts here</strong>
+              <p>Add your footage, layer in a little sound, and make something worth watching.</p>
+              {onAddMedia && <button className="preview-start" onClick={(event) => { event.stopPropagation(); onAddMedia(); }}>Add media <span aria-hidden="true">↗</span></button>}
+            </div>
+          )}
         <div
           ref={containerRef}
-          className="relative bg-black overflow-hidden"
+          className="preview-canvas relative bg-black overflow-hidden"
           style={{
-            width: '80%',
+            visibility: elements.length === 0 ? 'hidden' : undefined,
+            width: stageSize.width ? `${Math.min(stageSize.width, stageSize.height * parsedAspectRatio)}px` : '80%',
             aspectRatio: `${parsedAspectRatio}`,
             maxHeight: '100%',
             maxWidth: '100%',
@@ -795,17 +815,19 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
             <select
               value={aspectRatio}
               onChange={(e) => onAspectRatioChange(e.target.value)}
-              className="hidden cursor-pointer rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-pp-text-dim outline-none hover:border-pp-border hover:text-pp-text md:block"
+              aria-label="Sequence aspect ratio"
+              className="cursor-pointer rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-pp-text-dim outline-none hover:border-pp-border hover:text-pp-text"
               data-tip="Sequence Settings"
             >
               {aspectRatioPresets.map(preset => (
-                <option key={preset.value} value={preset.value} className="bg-pp-menu-bg text-pp-text">{preset.label} ({preset.value})</option>
+                <option key={preset.value} value={preset.value} className="bg-pp-menu-bg text-pp-text">{preset.value}</option>
               ))}
             </select>
 
             <select
+              aria-label="Preview zoom"
               value={monitorZoom}
-              onChange={(e) => setMonitorZoom(e.target.value as any)}
+              onChange={(e) => setMonitorZoom(e.target.value as typeof monitorZoom)}
               className="bg-pp-dark border border-pp-border rounded px-2 py-0.5 text-[11px] text-pp-text outline-none cursor-pointer"
             >
               <option value="fit" className="bg-pp-menu-bg">Fit</option>
@@ -821,6 +843,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
               <button
                 onClick={() => onResetSelectedMediaToFrame()}
                 className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim"
+                aria-label="Fit selected media to frame"
                 data-tip="Fit selected media to frame"
               >
                 <span className="text-[11px]">↺</span>
@@ -829,14 +852,18 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
             <button
               onClick={() => setShowSafeMargins(prev => !prev)}
               className={`pp-icon-btn h-6 w-6 border ${showSafeMargins ? 'border-pp-accent text-pp-accent bg-pp-light' : 'border-transparent text-pp-text-dim'}`}
+              aria-label="Toggle safe margins"
+              aria-pressed={showSafeMargins}
               data-tip="Safe Margins"
             >
               <span className="text-[10px]">☐</span>
             </button>
             <button
-              onClick={() => { }}
+              onClick={() => setShowCenterGuide(prev => !prev)}
               className="pp-icon-btn h-6 w-6 border border-transparent text-pp-text-dim"
-              data-tip="Button Editor"
+              aria-label="Toggle center guides"
+              aria-pressed={showCenterGuide}
+              data-tip="Center guides"
             >
               <span className="text-[12px] font-bold">+</span>
             </button>

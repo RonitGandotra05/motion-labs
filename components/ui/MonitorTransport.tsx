@@ -40,33 +40,34 @@ const MonitorTransport: React.FC<MonitorTransportProps> = ({
   const progress = Math.min(100, (currentTime / safeDuration) * 100);
 
   return (
-    <div className="flex-shrink-0 border-t border-black/30 bg-pp-dark px-4 pb-2 pt-1.5">
-      <div className="mb-1.5 flex items-center justify-between text-[11px] font-mono leading-none">
+    <div className="monitor-transport flex-shrink-0 border-t border-black/30 bg-pp-dark px-4 pb-2 pt-1.5">
+      <div className="monitor-meta mb-1.5 flex items-center justify-between text-[11px] font-mono leading-none">
         <div className="flex min-w-0 items-center gap-3">
           <span className="pp-timecode text-pp-timecode">{formatTimecode(currentTime)}</span>
           {leftControls}
         </div>
         <div className="flex min-w-0 items-center gap-3">
           {rightControls}
-          <span className="pp-timecode text-pp-timecode">{formatTimecode(duration)}</span>
+          <span className="monitor-duration pp-timecode text-pp-timecode">{formatTimecode(duration)}</span>
         </div>
       </div>
 
       <div className="mb-1.5">
         <div className="relative h-4">
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-2 rounded-sm border border-[#262626] bg-[#161616]"
+            className="pointer-events-none absolute inset-x-0 top-0 h-2 rounded-sm border border-[var(--pp-bg-medium)] bg-pp-darkest"
             style={{
               backgroundImage:
                 'repeating-linear-gradient(to right, rgba(120,120,120,0.45) 0 1px, transparent 1px 10px)'
             }}
           />
-          <div className="pointer-events-none absolute inset-x-0 top-[7px] h-px bg-[#2e2e2e]" />
+          <div className="pointer-events-none absolute inset-x-0 top-[7px] h-px bg-pp-border" />
           <div
-            className="pointer-events-none absolute left-0 top-0 h-2 rounded-sm bg-[#4e9fd5]"
+            className="pointer-events-none absolute left-0 top-0 h-2 rounded-sm bg-pp-accent"
             style={{ width: `${progress}%` }}
           />
           <input
+            aria-label="Playback position"
             type="range"
             min="0"
             max={safeDuration}
@@ -80,19 +81,19 @@ const MonitorTransport: React.FC<MonitorTransportProps> = ({
       </div>
 
       <div className="flex items-center justify-center gap-1">
-        <button type="button" onClick={() => onSeek(0)} className="pp-transport-btn" disabled={disabled} data-tip="Go to Start">
+        <button type="button" onClick={() => onSeek(0)} className="pp-transport-btn" disabled={disabled} aria-label="Go to start" data-tip="Go to Start">
           <span className="text-[10px]">⏮</span>
         </button>
-        <button type="button" onClick={() => onSeek(clampTime(currentTime - stepAmount, duration))} className="pp-transport-btn" disabled={disabled} data-tip="Step Back">
+        <button type="button" onClick={() => onSeek(clampTime(currentTime - stepAmount, duration))} className="pp-transport-btn" disabled={disabled} aria-label="Previous frame" data-tip="Step Back">
           <span className="text-[10px]">◀</span>
         </button>
-        <button type="button" onClick={onTogglePlay} className="pp-transport-btn h-8 w-8" disabled={disabled} data-tip={isPlaying ? 'Pause' : 'Play'}>
+        <button type="button" onClick={onTogglePlay} aria-label={isPlaying ? 'Pause' : 'Play'} className="transport-play pp-transport-btn h-8 w-8" disabled={disabled} data-tip={isPlaying ? 'Pause' : 'Play'}>
           {isPlaying ? <PauseIcon className="h-3.5 w-3.5" /> : <PlayIcon className="h-3.5 w-3.5" />}
         </button>
-        <button type="button" onClick={() => onSeek(clampTime(currentTime + stepAmount, duration))} className="pp-transport-btn" disabled={disabled} data-tip="Step Forward">
+        <button type="button" onClick={() => onSeek(clampTime(currentTime + stepAmount, duration))} className="pp-transport-btn" disabled={disabled} aria-label="Next frame" data-tip="Step Forward">
           <span className="text-[10px]">▶</span>
         </button>
-        <button type="button" onClick={() => onSeek(duration)} className="pp-transport-btn" disabled={disabled} data-tip="Go to End">
+        <button type="button" onClick={() => onSeek(duration)} className="pp-transport-btn" disabled={disabled} aria-label="Go to end" data-tip="Go to End">
           <span className="text-[10px]">⏭</span>
         </button>
       </div>

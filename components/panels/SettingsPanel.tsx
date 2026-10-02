@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { getStoredApiKey, setStoredApiKey } from "../../services/geminiService";
 
+import useDialog from '../ui/useDialog';
+
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
+  const dialogRef = useDialog(isOpen, onClose);
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState<"idle" | "saved" | "cleared">("idle");
 
@@ -33,9 +36,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
-      <div className="relative w-[420px] max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-5">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Settings" tabIndex={-1} className="studio-dialog relative w-[420px] max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-5 max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Settings</h2>
           <button

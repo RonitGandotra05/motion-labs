@@ -1,4 +1,5 @@
 import React from 'react';
+import useDialog from './useDialog';
 
 interface KeyboardShortcutsModalProps {
     isOpen: boolean;
@@ -6,17 +7,16 @@ interface KeyboardShortcutsModalProps {
 }
 
 const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
+    const dialogRef = useDialog(isOpen, onClose);
     if (!isOpen) return null;
 
     const shortcuts = [
         {
             category: 'Playback', items: [
                 { key: 'Space', action: 'Play / Pause' },
-                { key: 'J', action: 'Play backwards' },
+                { key: 'J', action: 'Jump back 5 seconds' },
                 { key: 'K', action: 'Pause' },
-                { key: 'L', action: 'Play forward / Speed up' },
-                { key: '←', action: 'Step back 1 frame' },
-                { key: '→', action: 'Step forward 1 frame' },
+                { key: 'L', action: 'Jump forward 5 seconds & play' },
                 { key: 'Home', action: 'Go to start' },
                 { key: 'End', action: 'Go to end' },
             ]
@@ -25,25 +25,25 @@ const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen,
             category: 'Editing', items: [
                 { key: 'S', action: 'Split clip at playhead' },
                 { key: 'Delete', action: 'Delete selected' },
-                { key: 'Ctrl+Z', action: 'Undo' },
-                { key: 'Ctrl+Shift+Z', action: 'Redo' },
-                { key: 'Ctrl+C', action: 'Copy' },
-                { key: 'Ctrl+V', action: 'Paste' },
-                { key: 'Ctrl+D', action: 'Duplicate' },
+                { key: 'Ctrl / ⌘ + Z', action: 'Undo' },
+                { key: 'Ctrl / ⌘ + Shift + Z', action: 'Redo' },
+                { key: 'Ctrl / ⌘ + C', action: 'Copy' },
+                { key: 'Ctrl / ⌘ + V', action: 'Paste' },
+                { key: 'D', action: 'Duplicate' },
             ]
         },
         {
             category: 'Timeline', items: [
-                { key: '+ / =', action: 'Zoom in' },
-                { key: '- / _', action: 'Zoom out' },
+                { key: 'Ctrl / ⌘ + =', action: 'Zoom in' },
+                { key: 'Ctrl / ⌘ + −', action: 'Zoom out' },
                 { key: 'Shift+Drag', action: 'Disable snapping' },
-                { key: 'Alt+Drag', action: 'Slip edit (move media)' },
+                { key: 'Y', action: 'Choose slip tool' },
             ]
         },
         {
             category: 'View', items: [
-                { key: 'Tab', action: 'Toggle properties panel' },
-                { key: 'F', action: 'Fit timeline to view' },
+                { key: 'Arrow keys', action: 'Nudge selected item' },
+                { key: 'Escape', action: 'Close a dialog' },
                 { key: '?', action: 'Show shortcuts' },
             ]
         },
@@ -51,11 +51,12 @@ const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen,
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden"
+                ref={dialogRef} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" tabIndex={-1}
+                className="studio-dialog bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -66,6 +67,7 @@ const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen,
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close keyboard shortcuts"
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +77,7 @@ const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen,
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[60vh] grid grid-cols-2 gap-6">
+                <div className="p-6 overflow-y-auto max-h-[60vh] grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {shortcuts.map((section) => (
                         <div key={section.category}>
                             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">

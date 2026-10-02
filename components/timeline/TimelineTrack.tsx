@@ -4,6 +4,8 @@ import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import Waveform from './Waveform';
 
 interface TimelineTrackProps {
+  trackHeaderWidth?: number;
+  selectedElementIds?: string[];
   track: Track;
   elements: EditorElement[];
   currentTime: number;
@@ -32,7 +34,8 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
   onUpdateTrack,
   trackCount = 1,
   selectedElementIds = [],
-  trackLabel
+  trackLabel,
+  trackHeaderWidth = TIMELINE_TRACK_HEADER_WIDTH
 }) => {
   const isAudioTrack = track.type === 'audio';
   const label = trackLabel || track.name;
@@ -59,17 +62,17 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
   };
 
   return (
-    <div className={`flex border-b border-black/40 relative group/track ${isAudioTrack ? 'h-[58px]' : 'h-[40px]'}`} style={{ background: '#232323' }}>
+    <div className={`flex border-b border-black/40 relative group/track ${isAudioTrack ? 'h-[58px]' : 'h-[40px]'}`} style={{ background: 'var(--pp-bg-dark)' }}>
       {/* Track Header - Premiere Pro style */}
       <div
-        className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header relative bg-[#1c1c1c] border-r border-[#111111]"
-        style={{ width: `${TIMELINE_TRACK_HEADER_WIDTH}px` }}
+        className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header relative bg-[var(--pp-bg-darkest)] border-r border-[var(--pp-border)]"
+        style={{ width: `${trackHeaderWidth}px` }}
       >
 
         {/* Source patch col */}
-        <div className="flex flex-col justify-center items-center w-[30px] border-r border-[#2a2a2a] h-full pr-1 shrink-0">
+        <div className="source-patch flex flex-col justify-center items-center w-[30px] border-r border-[var(--pp-border)] h-full pr-1 shrink-0">
           <button
-            className="w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
+            className="track-target w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
             data-tip={isAudioTrack ? `Audio source patch ${label}` : `Video source patch ${label}`}
           >
             {label}
@@ -77,7 +80,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
         </div>
 
         {/* Lock & Targeting Col */}
-        <div className="flex items-center w-[54px] border-r border-[#2a2a2a] h-full justify-center px-1 gap-1 shrink-0">
+        <div className="track-lock flex items-center w-[54px] border-r border-[var(--pp-border)] h-full justify-center px-1 gap-1 shrink-0">
           {/* Lock icon - Premiere Pro padlock style */}
           <button
             className={`pp-icon-btn w-[16px] h-[16px] flex-shrink-0 flex items-center justify-center ${track.isLocked ? 'text-[#e8b84a]' : 'text-gray-500 hover:text-gray-300'}`}
@@ -101,7 +104,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
 
           {/* Track targeting button */}
           <button
-            className="w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
+            className="track-target w-[22px] h-[20px] bg-[#0c4076] hover:bg-[#1a5b99] flex items-center justify-center text-[#99c2ff] hover:text-white text-[10px] font-bold cursor-pointer rounded-[1px] shadow-sm border-none p-0 outline-none"
             data-tip="Track Targeting"
           >
             {label}
@@ -110,14 +113,14 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
 
         {/* Sync Lock Col */}
         <button
-          className="flex justify-center items-center w-[20px] h-full border-r border-[#2a2a2a] shrink-0 cursor-pointer bg-transparent border-t-0 border-b-0 border-l-0 p-0 outline-none hover:bg-white/5"
+          className="track-sync flex justify-center items-center w-[20px] h-full border-r border-[var(--pp-border)] shrink-0 cursor-pointer bg-transparent border-t-0 border-b-0 border-l-0 p-0 outline-none hover:bg-white/5"
           data-tip="Sync Lock"
         >
           <div className="w-2 h-[2px] bg-gray-600 rounded-sm pointer-events-none"></div>
         </button>
 
         {/* Toggles Col (Eye for V, M/S/Mic for A) */}
-        <div className="flex items-center flex-1 px-2 h-full gap-2 overflow-hidden shrink-0">
+        <div className="track-toggles flex items-center flex-1 px-2 h-full gap-2 overflow-hidden shrink-0">
           {!isAudioTrack ? (
             <>
               {/* Video: Speaker icon for track monitor */}
@@ -144,7 +147,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
               </button>
               {/* Video Eye Icon */}
               <button
-                className={`flex-shrink-0 flex items-center justify-center w-[16px] h-[16px] ${track.isVisible ? 'text-gray-400 hover:text-white' : 'text-[#2a2a2a] hover:text-gray-500'}`}
+                className={`flex-shrink-0 flex items-center justify-center w-[16px] h-[16px] ${track.isVisible ? 'text-gray-400 hover:text-white' : 'text-[var(--pp-border)] hover:text-gray-500'}`}
                 data-tip={track.isVisible ? 'Hide Track' : 'Show Track'}
                 onClick={() => onUpdateTrack?.(track.id, { isVisible: !track.isVisible })}
               >
@@ -245,7 +248,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
       </div>
 
       {/* Track Content (Timeline) */}
-      <div className={`flex-grow relative h-full overflow-hidden ${!track.isVisible ? 'opacity-30' : ''}`} style={{ background: isAudioTrack ? '#1f2a1f' : '#1e2430' }}>
+      <div className={`flex-grow relative h-full overflow-hidden ${!track.isVisible ? 'opacity-30' : ''}`} style={{ background: isAudioTrack ? 'rgb(var(--color-accent) / .04)' : 'var(--pp-bg-medium)' }}>
         {elements.filter(el => el.trackId === track.id).map((el) => {
           const left = el.startTime * pixelsPerSecond;
           const width = el.duration * pixelsPerSecond;

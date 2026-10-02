@@ -228,7 +228,7 @@ const exportAudioRealtimeFallback = async ({
     media.src = element.props.src;
     media.crossOrigin = 'anonymous';
     media.muted = true;
-    media.playsInline = true;
+    media.setAttribute('playsinline', 'true');
     mediaElements.set(element.id, media);
   }
 

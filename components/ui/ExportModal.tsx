@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import useDialog from './useDialog';
 import { DownloadIcon, MusicIcon, VideoIcon } from './Icons';
 import {
     ExportFormatOption,
@@ -38,6 +39,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     elements = [],
     initialExportType
 }) => {
+    const dialogRef = useDialog(isOpen, onClose, !isExporting);
     const availableAudioFormats = useMemo(
         () => (audioFormats && audioFormats.length > 0 ? audioFormats : getSupportedAudioFormats()),
         [audioFormats]
@@ -138,9 +140,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
         (exportMediaType === 'audio' && availableAudioFormats.length === 0);
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
-            <div className="relative w-[440px] max-w-[95vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-6 max-h-[92vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { if (!isExporting) onClose(); }}></div>
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Export settings" tabIndex={-1} className="studio-dialog relative w-[440px] max-w-[95vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl p-6 max-h-[92dvh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                         {exportMediaType === 'audio' ? (

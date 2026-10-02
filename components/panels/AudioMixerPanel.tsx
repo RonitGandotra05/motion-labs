@@ -72,9 +72,9 @@ const AudioMixerPanel: React.FC<AudioMixerPanelProps> = ({
     const dbMarks = [0, -6, -12, -18, -24, -36, -48];
 
     return (
-        <div className="flex flex-col h-[calc(100%-24px)] bg-[#171717] border-l border-black/60 w-[96px] flex-shrink-0 select-none font-pp-ui mt-6 relative z-10 box-border border-b border-r border-r-black/60 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
+        <div className="flex flex-col h-[calc(100%-24px)] bg-pp-dark border-l border-black/60 w-[96px] flex-shrink-0 select-none font-pp-ui mt-6 relative z-10 box-border border-b border-r border-r-black/60 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
             {/* Header */}
-            <div className="text-center py-1 bg-[#212121] border-b border-black/40">
+            <div className="text-center py-1 bg-pp-medium border-b border-black/40">
                 <span className="text-[10px] text-white font-bold tracking-wider">MIXER</span>
             </div>
 
