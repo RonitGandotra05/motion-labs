@@ -1,4 +1,4 @@
-import { EditorElement, Track, Marker } from '../types';
+import type { EditorElement, Track, Marker } from '../types';
 
 // State snapshot for undo/redo
 export interface HistoryState {
@@ -37,7 +37,7 @@ class HistoryManager {
 
         const previousState = this.undoStack.pop()!;
         this.redoStack.push(JSON.parse(JSON.stringify(currentState)));
-        this.lastSavedState = JSON.stringify(previousState);
+        this.lastSavedState = ''; // The next edit must save this restored state and clear the redo branch.
 
         return previousState;
     }
@@ -48,7 +48,7 @@ class HistoryManager {
 
         const nextState = this.redoStack.pop()!;
         this.undoStack.push(JSON.parse(JSON.stringify(currentState)));
-        this.lastSavedState = JSON.stringify(nextState);
+        this.lastSavedState = '';
 
         return nextState;
     }

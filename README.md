@@ -14,7 +14,7 @@ Cut footage. Layer sound. Add a title. Make it yours.
 
 ## Meet your workspace
 
-Motion Labs brings a familiar multi-track editing workflow to a quieter, more focused interface. Charcoal panels, soft blue accents, and a matching light theme keep your footage at the center. On a phone or tablet, the studio becomes a compact workspace with a persistent preview, quick editing actions, and **Timeline / Media / Properties** navigation.
+Motion Labs brings a familiar multi-track editing workflow to a quieter, more focused interface. Neutral charcoal panels, white controls, selective icon colors, and a matching light theme keep your footage at the center. On a phone or tablet, the studio becomes a compact workspace with a persistent preview, quick editing actions, and **Timeline / Media / Properties** navigation.
 
 | Desktop studio | Mobile workspace |
 | :---: | :---: |
@@ -29,6 +29,19 @@ Motion Labs brings a familiar multi-track editing workflow to a quieter, more fo
 5. **Save or share.** **Save** downloads a portable `.motionlabs` project with its media. **Open** restores it. **Export** opens video/audio settings with the formats your browser supports.
 
 > Your media library and editing state are also stored locally in IndexedDB. Download a project file when you want a backup or want to move your work to another device.
+
+## Editing commands
+
+The desktop menu bar exposes **File, Edit, Clip, Sequence, Markers, Graphics, View, Window, and Help**. On smaller screens, open **•••** and choose a command group. Commands are disabled when their selection requirements are not met.
+
+- **Edit:** cut, copy, paste, paste insert, select all, and deselect all. Copying a linked clip includes its group and preserves timing between clips. Paste inserts at the current playhead; paste insert opens space across unlocked tracks and splits clips that cross that point.
+- **Clip:** rename, duplicate, delete, ripple delete, split, group/ungroup, and access speed/duration controls. Ripple delete closes the removed intervals on affected tracks; it is disabled if surviving clips overlap those intervals. Locked tracks and groups with locked members are protected.
+- **Sequence and Markers:** add video/audio tracks, delete a selected clip’s track, toggle snapping, close gaps, add markers, navigate between them, or clear markers.
+- **Graphics, View, and Window:** add text/shapes/adjustment layers, fit the sequence in the timeline, open panels, and reset the workspace. Source, Effects, and Audio Mixer can also open in a dialog on compact screens.
+
+Existing **S** split and export shortcuts remain available. **C** selects the click-to-cut razor; **Ctrl/⌘+K** splits at the playhead. **M** adds a marker, **Shift+M** goes to the next, and **Alt+Shift+M** goes to the previous. Menu actions and keyboard shortcuts use the same editing handlers.
+
+These are Premiere-style workflows implemented in this browser editor; they do not provide complete Premiere Pro feature parity.
 
 ## Room to create
 
@@ -60,6 +73,7 @@ npm run dev
 Open the local URL printed by Vite (port `3000` by default).
 
 ```bash
+npm test            # Editing and undo regression checks (Node 22.6+)
 npm run typecheck   # Check TypeScript
 npm run build       # Create the production app in dist/
 npm run preview     # Preview the production build

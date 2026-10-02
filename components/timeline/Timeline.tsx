@@ -180,6 +180,8 @@ const Timeline: React.FC<TimelineProps> = ({
   const handleElementInteraction = (e: React.MouseEvent | React.TouchEvent, type: DragMode, elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => {
     e.stopPropagation();
     e.preventDefault();
+    const clicked = elements.find(clip => clip.id === elementId);
+    if (tracks.find(track => track.id === trackId)?.isLocked || (clicked?.groupId && elements.some(clip => clip.groupId === clicked.groupId && tracks.find(track => track.id === clip.trackId)?.isLocked))) return;
 
     const isMetaKey = 'metaKey' in e && e.metaKey;
     const isCtrlKey = 'ctrlKey' in e && e.ctrlKey;

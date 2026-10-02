@@ -9,7 +9,9 @@ import EffectsPanel from './components/panels/EffectsPanel';
 import AudioMixerPanel from './components/panels/AudioMixerPanel';
 import VideoPreview, { VideoPreviewHandle } from './components/preview/VideoPreview';
 import Timeline from './components/timeline/Timeline';
-import MenuBar from './components/ui/MenuBar';
+import MenuBar, { type EditorMenus } from './components/ui/MenuBar';
+import PanelDialog from './components/ui/PanelDialog';
+import { selectedClips, cloneClips, pasteClips, deleteClips, canRippleDelete } from './utils/editing';
 import ToolsPanel from './components/ui/ToolsPanel';
 import type { ToolMode } from './components/ui/ToolsPanel';
 import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker } from './types';
@@ -65,6 +67,17 @@ function App() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'source' | 'properties' | 'color'>('source');
   const [activeLeftBottomTab, setActiveLeftBottomTab] = useState<'project' | 'effects'>('project');
+  const [clipboardClips, setClipboardClips] = useState<EditorElement[]>(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem('reactframe_clipboard') || '[]');
+      return (Array.isArray(data) ? data : [data]).filter(clip => clip && typeof clip.id === 'string' && typeof clip.name === 'string' && clip.props && Number.isFinite(clip.startTime) && Number.isFinite(clip.duration) && clip.duration > 0);
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('reactframe_clipboard', JSON.stringify(clipboardClips)); } catch { /* Keep the in-memory clipboard available when storage is full. */ }
+  }, [clipboardClips]);
+  const [floatingPanel, setFloatingPanel] = useState<'source' | 'effects' | 'audio' | 'rename' | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [sourceClip, setSourceClip] = useState<SourceClip | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'timeline' | 'assets' | 'properties'>('timeline');
   const [toolMode, setToolMode] = useState<ToolMode>('pointer');
@@ -471,10 +484,48 @@ function App() {
     }
   }, [project.elements, project.tracks, project.markers]);
 
+  const selectionIds = project.selectedElementIds.length ? project.selectedElementIds : project.selectedElementId ? [project.selectedElementId] : [];
+  const selection = selectedClips(project.elements, selectionIds, project.tracks);
+  const editableSelection = selectedClips(project.elements, selectionIds, project.tracks, true);
+  const handleCopySelection = () => { if (selection.length) setClipboardClips(structuredClone(selection)); };
+  const handleDeleteSelection = (ripple = false) => {
+    if (!editableSelection.length || (ripple && !canRippleDelete(project.elements, editableSelection))) return;
+    saveToHistory();
+    setProject(prev => ({ ...prev, elements: deleteClips(prev.elements, editableSelection, ripple), selectedElementId: null, selectedElementIds: [] }));
+  };
+  const handleCutSelection = () => {
+    if (!editableSelection.length) return;
+    setClipboardClips(structuredClone(editableSelection));
+    handleDeleteSelection();
+  };
+  const handlePasteSelection = (insert = false) => {
+    if (!clipboardClips.length) return;
+    saveToHistory();
+    setProject(prev => {
+      const pasted = pasteClips(prev.elements, prev.tracks, clipboardClips, prev.currentTime, insert);
+      return { ...prev, elements: pasted.elements, tracks: normalizeTrackTypes(pasted.tracks),
+        duration: Math.max(prev.duration, ...pasted.elements.map(clip => clip.startTime + clip.duration)),
+        selectedElementId: pasted.pastedIds[0] || null, selectedElementIds: pasted.pastedIds };
+    });
+  };
+  const handleDuplicateSelection = () => {
+    if (!editableSelection.length) return;
+    saveToHistory();
+    const copies = cloneClips(editableSelection, Math.min(...editableSelection.map(clip => clip.startTime)));
+    setProject(prev => ({ ...prev, elements: [...prev.elements, ...copies], selectedElementId: copies[0].id, selectedElementIds: copies.map(clip => clip.id) }));
+  };
+  const handleSelectAll = () => setProject(prev => ({ ...prev, selectedElementIds: prev.elements.map(clip => clip.id), selectedElementId: prev.elements[0]?.id || null }));
+  const handleDeselectAll = () => setProject(prev => ({ ...prev, selectedElementId: null, selectedElementIds: [] }));
+  const handleNavigateMarker = (direction: 'next' | 'previous') => {
+    const markers = [...project.markers].sort((a, b) => a.time - b.time);
+    const marker = direction === 'next' ? markers.find(marker => marker.time > project.currentTime + 0.001) : markers.reverse().find(marker => marker.time < project.currentTime - 0.001);
+    if (marker) setProject(prev => ({ ...prev, currentTime: marker.time }));
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest('[role="dialog"]')) return;
+      if (e.defaultPrevented || (e.target as HTMLElement)?.closest('[role="dialog"], [role="menu"], [contenteditable="true"]')) return;
       // Ignore if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
         return;
@@ -523,8 +574,7 @@ function App() {
       const toolKey = e.key.toLowerCase();
       if (toolKey === 'c' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
-        handleSplit();
-        setToolMode('pointer');
+        setToolMode('blade');
         return;
       }
       if (toolShortcuts[toolKey] && !e.metaKey && !e.ctrlKey) {
@@ -539,53 +589,22 @@ function App() {
         return;
       }
 
-      // Copy: Cmd+C
-      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && project.selectedElementId) {
+      const commandKey = e.metaKey || e.ctrlKey;
+      if (commandKey && ['c', 'x', 'v', 'a'].includes(toolKey)) {
         e.preventDefault();
-        const el = project.elements.find(e => e.id === project.selectedElementId);
-        if (el) {
-          // Basic clipboard impl: Store in localStorage for now since we want internal app copy/paste
-          // In a real app we might use navigator.clipboard with custom MIME type but that is complex.
-          // Simple App-level clipboard state would use a ref or state, but we are inside useEffect closure.
-          // We can use a temporary localStorage key for simplicity to persist across reloads too.
-          localStorage.setItem('reactframe_clipboard', JSON.stringify(el));
-          // If it has a group, maybe copy whole group? For now, just single element.
-        }
+        if (toolKey === 'c') handleCopySelection();
+        if (toolKey === 'x') handleCutSelection();
+        if (toolKey === 'v') handlePasteSelection(e.shiftKey);
+        if (toolKey === 'a') e.shiftKey ? handleDeselectAll() : handleSelectAll();
         return;
       }
-
-      // Paste: Cmd+V
-      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+      if (!commandKey && toolKey === 'm') {
         e.preventDefault();
-        const clipboardData = localStorage.getItem('reactframe_clipboard');
-        if (clipboardData) {
-          try {
-            const elToPaste = JSON.parse(clipboardData) as EditorElement;
-            saveToHistory();
-            const newId = `${elToPaste.type.toLowerCase()}-${Date.now()}`;
-            const newElement: EditorElement = {
-              ...elToPaste,
-              id: newId,
-              name: `${elToPaste.name} Copy`,
-              startTime: project.currentTime, // Paste at playhead
-              trackId: elToPaste.trackId, // Try to paste on same track
-              // Check collision? For now just paste.
-              groupId: undefined // Do not paste into old group
-            };
-
-            // If track is occupied, simple logic: maybe move to new track or just let it overlap (our engine supports overlap visually but it's messy)
-            // Let's just paste.
-            setProject(prev => ({
-              ...prev,
-              elements: [...prev.elements, newElement],
-              selectedElementId: newId
-            }));
-          } catch (err) {
-            console.error("Paste failed", err);
-          }
-        }
+        if (e.shiftKey) handleNavigateMarker(e.altKey ? 'previous' : 'next');
+        else handleAddMarker(project.currentTime);
         return;
       }
+      if (commandKey && toolKey === 'k') { e.preventDefault(); handleSplit(); return; }
 
       if ((e.key === '+' || e.key === '=') && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -599,41 +618,13 @@ function App() {
         return;
       }
 
-      // Delete element: Delete or Backspace
-      if ((e.key === 'Delete' || e.key === 'Backspace') && project.selectedElementId) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        saveToHistory();
-
-        setProject(prev => ({
-          ...prev,
-          elements: prev.elements.filter(el => el.id !== project.selectedElementId),
-          selectedElementId: null,
-          selectedElementIds: []
-        }));
+        handleDeleteSelection(e.shiftKey);
         return;
       }
-
-      // Duplicate element: D
-      if (e.key === 'd' && project.selectedElementId && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        const selectedEl = project.elements.find(el => el.id === project.selectedElementId);
-        if (selectedEl) {
-          saveToHistory();
-          const newElement: EditorElement = {
-            ...selectedEl,
-            id: `${selectedEl.type.toLowerCase()}-${Date.now()}`,
-            name: `${selectedEl.name} Copy`,
-            x: Math.min(selectedEl.x + 5, 90),
-            y: Math.min(selectedEl.y + 5, 90),
-            groupId: undefined // Do not duplicate group membership automatically unless we duplicate whole group
-          };
-          setProject(prev => ({
-            ...prev,
-            elements: [...prev.elements, newElement],
-            selectedElementId: newElement.id
-          }));
-        }
-        return;
+      if (toolKey === 'd' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault(); handleDuplicateSelection(); return;
       }
 
       // Export Media: Ctrl+M / Cmd+M
@@ -657,7 +648,7 @@ function App() {
         setProject(prev => ({
           ...prev,
           elements: prev.elements.map(el => {
-            if (el.id !== prev.selectedElementId) return el;
+            if (el.id !== prev.selectedElementId || prev.tracks.find(track => track.id === el.trackId)?.isLocked) return el;
             switch (e.key) {
               case 'ArrowUp': return { ...el, y: Math.max(0, el.y - nudgeAmount) };
               case 'ArrowDown': return { ...el, y: Math.min(100, el.y + nudgeAmount) };
@@ -731,10 +722,12 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, project.selectedElementId, project.elements, saveToHistory]);
+  });
 
   // Group helpers
   const handleGroupElements = (elementIds: string[]) => {
+    elementIds = selectedClips(project.elements, elementIds, project.tracks, true).map(clip => clip.id);
+    if (elementIds.length < 2) return;
     const groupId = Math.random().toString(36).substr(2, 9);
     saveToHistory();
     setProject(prev => ({
@@ -744,6 +737,7 @@ function App() {
   };
 
   const handleUngroupElements = (groupId: string) => {
+    if (project.elements.some(clip => clip.groupId === groupId && project.tracks.find(track => track.id === clip.trackId)?.isLocked)) return;
     saveToHistory();
     setProject(prev => ({
       ...prev,
@@ -882,13 +876,13 @@ function App() {
 
     if (preferredTrackId !== undefined) {
       const preferredTrack = tracks.find(track => track.id === preferredTrackId);
-      if (preferredTrack && isTrackTypeCompatible(preferredTrack, desiredType)) {
+      if (preferredTrack && !preferredTrack.isLocked && isTrackTypeCompatible(preferredTrack, desiredType)) {
         return preferredTrackId;
       }
     }
 
     const compatibleTracks = [...tracks]
-      .filter(track => isTrackTypeCompatible(track, desiredType))
+      .filter(track => !track.isLocked && isTrackTypeCompatible(track, desiredType))
       .sort((a, b) => a.id - b.id);
 
     for (const track of compatibleTracks) {
@@ -1131,10 +1125,12 @@ function App() {
   };
 
   const handleDeleteElement = (id: string) => {
+    const clips = selectedClips(project.elements, [id], project.tracks, true);
+    if (!clips.length) return;
     saveToHistory();
     setProject(prev => ({
       ...prev,
-      elements: prev.elements.filter(el => el.id !== id),
+      elements: deleteClips(prev.elements, clips),
       selectedElementId: null,
       selectedElementIds: []
     }));
@@ -1148,6 +1144,7 @@ function App() {
       let modified = false;
 
       prev.elements.forEach(el => {
+        if (prev.tracks.find(track => track.id === el.trackId)?.isLocked) return;
         if (time > el.startTime && time < el.startTime + el.duration) {
           // If selection exists, only split selected elements.
           // If no selection, split all elements under playhead (Razor/Blade behavior).
@@ -1192,7 +1189,7 @@ function App() {
     saveToHistory();
     setProject(prev => {
       const el = prev.elements.find(e => e.id === elementId);
-      if (!el || time <= el.startTime || time >= el.startTime + el.duration) return prev;
+      if (!el || prev.tracks.find(track => track.id === el.trackId)?.isLocked || time <= el.startTime || time >= el.startTime + el.duration) return prev;
 
       const splitPointRelative = time - el.startTime;
       const leftDuration = splitPointRelative;
@@ -1318,6 +1315,7 @@ function App() {
 
   // Insert a new track at a specific position (between tracks)
   const handleInsertTrack = (afterTrackId: number) => {
+    saveToHistory();
     setProject(prev => {
       const newTrackId = afterTrackId + 1;
 
@@ -1361,6 +1359,8 @@ function App() {
 
   // Delete a track and all its elements
   const handleDeleteTrack = (trackId: number) => {
+    if (project.tracks.find(track => track.id === trackId)?.isLocked) return;
+    saveToHistory();
     setProject(prev => {
       // Don't allow deleting if only one track remains
       if (prev.tracks.length <= 1) {
@@ -1399,7 +1399,8 @@ function App() {
         ...prev,
         tracks: normalizeTrackTypes(updatedTracks),
         elements: updatedElements,
-        selectedElementId: null
+        selectedElementId: null,
+        selectedElementIds: []
       };
     });
   };
@@ -1418,6 +1419,7 @@ function App() {
 
       // Process each track independently
       const updatedElements = prev.elements.map(el => {
+        if (prev.tracks.find(track => track.id === el.trackId)?.isLocked) return el;
         const trackElements = elementsByTrack.get(el.trackId) || [];
         // Sort elements on this track by start time
         const sorted = [...trackElements].sort((a, b) => a.startTime - b.startTime);
@@ -1455,6 +1457,7 @@ function App() {
   };
 
   const handleCloseGap = (trackId: number, gapStart: number, gapEnd: number) => {
+    if (project.tracks.find(track => track.id === trackId)?.isLocked) return;
     const gapDuration = Math.max(0, gapEnd - gapStart);
     if (gapDuration <= 0) return;
 
@@ -1623,10 +1626,78 @@ function App() {
 
   const selectedElement = project.elements.find(el => el.id === project.selectedElementId) || null;
 
+  const showProperties = () => { setActiveRightTab('properties'); if (isMobile) setActiveMobileTab('properties'); };
+  const fitTimeline = () => {
+    const width = document.querySelector('.timeline-panel')?.clientWidth || window.innerWidth;
+    const end = Math.max(1, ...project.elements.map(clip => clip.startTime + clip.duration));
+    setPixelsPerSecond(Math.max(0.5, Math.min(2000, (width - (isMobile ? 156 : TIMELINE_TRACK_HEADER_WIDTH) - 40) / end)));
+  };
+  const resetWorkspace = () => {
+    setLeftPanelWidth(340); setTimelineHeight(Math.min(340, Math.max(180, window.innerHeight * 0.38)));
+    setActiveRightTab('source'); setActiveLeftBottomTab('project'); setActiveMobileTab('timeline'); setToolMode('pointer');
+  };
+  const commandMenus: EditorMenus = {
+    Edit: [
+      { label: 'Undo', shortcut: '⌘/Ctrl Z', action: handleUndo, disabled: !historyManager.canUndo() },
+      { label: 'Redo', shortcut: '⇧ ⌘/Ctrl Z', action: handleRedo, disabled: !historyManager.canRedo() },
+      { label: 'Cut', shortcut: '⌘/Ctrl X', action: handleCutSelection, disabled: !editableSelection.length },
+      { label: 'Copy', shortcut: '⌘/Ctrl C', action: handleCopySelection, disabled: !selection.length },
+      { label: 'Paste', shortcut: '⌘/Ctrl V', action: () => handlePasteSelection(), disabled: !clipboardClips.length },
+      { label: 'Paste insert', shortcut: '⇧ ⌘/Ctrl V', action: () => handlePasteSelection(true), disabled: !clipboardClips.length },
+      { label: 'Select all', shortcut: '⌘/Ctrl A', action: handleSelectAll, disabled: !project.elements.length },
+      { label: 'Deselect all', shortcut: '⇧ ⌘/Ctrl A', action: handleDeselectAll, disabled: !selection.length },
+      { label: 'Keyboard shortcuts', action: () => setShowKeyboardShortcuts(true) }
+    ],
+    Clip: [
+      { label: 'Rename…', action: () => { setRenameValue(selectedElement?.name || ''); setFloatingPanel('rename'); }, disabled: !selectedElement || !editableSelection.some(clip => clip.id === selectedElement.id) },
+      { label: 'Duplicate', shortcut: 'D', action: handleDuplicateSelection, disabled: !editableSelection.length },
+      { label: 'Delete', shortcut: 'Delete', action: () => handleDeleteSelection(), disabled: !editableSelection.length },
+      { label: 'Ripple delete', shortcut: '⇧ Delete', action: () => handleDeleteSelection(true), disabled: !canRippleDelete(project.elements, editableSelection) },
+      { label: 'Split at playhead', shortcut: '⌘/Ctrl K', action: handleSplit, disabled: !project.elements.some(clip => !project.tracks.find(track => track.id === clip.trackId)?.isLocked && (!selectionIds.length || selectionIds.includes(clip.id)) && clip.startTime < project.currentTime && clip.startTime + clip.duration > project.currentTime) },
+      { label: 'Speed and duration controls', action: showProperties, disabled: !selectedElement },
+      { label: 'Group clips', action: () => handleGroupElements(editableSelection.map(clip => clip.id)), disabled: editableSelection.length < 2 },
+      { label: 'Ungroup clips', action: () => { saveToHistory(); setProject(prev => ({ ...prev, elements: prev.elements.map(clip => editableSelection.some(selected => selected.id === clip.id) ? { ...clip, groupId: undefined } : clip) })); }, disabled: !editableSelection.some(clip => clip.groupId) }
+    ],
+    Sequence: [
+      { label: 'Add video track', action: () => { saveToHistory(); setProject(prev => ({ ...prev, tracks: normalizeTrackTypes([...prev.tracks, createTrackRecord(Math.max(-1, ...prev.tracks.map(track => track.id)) + 1, 'video')]) })); } },
+      { label: 'Add audio track', action: () => { saveToHistory(); setProject(prev => ({ ...prev, tracks: normalizeTrackTypes([...prev.tracks, createTrackRecord(Math.max(-1, ...prev.tracks.map(track => track.id)) + 1, 'audio')]) })); } },
+      { label: 'Delete selected clip’s track', action: () => selectedElement && handleDeleteTrack(selectedElement.trackId), disabled: !selectedElement || project.tracks.length <= 1 || !!project.tracks.find(track => track.id === selectedElement?.trackId)?.isLocked },
+      { label: 'Snap in timeline', checked: snapEnabled, action: () => setSnapEnabled(value => !value) },
+      { label: 'Close gaps', action: handleCloseGaps, disabled: !project.elements.length }
+    ],
+    Markers: [
+      { label: 'Add marker', shortcut: 'M', action: () => handleAddMarker(project.currentTime) },
+      { label: 'Next marker', shortcut: '⇧ M', action: () => handleNavigateMarker('next'), disabled: !project.markers.some(marker => marker.time > project.currentTime + 0.001) },
+      { label: 'Previous marker', shortcut: '⌥/Alt ⇧ M', action: () => handleNavigateMarker('previous'), disabled: !project.markers.some(marker => marker.time < project.currentTime - 0.001) },
+      { label: 'Clear all markers', action: () => { saveToHistory(); setProject(prev => ({ ...prev, markers: [] })); }, disabled: !project.markers.length }
+    ],
+    Graphics: [
+      { label: 'New text layer', action: () => { void handleAddElement(ElementType.TEXT); } },
+      { label: 'New shape layer', action: () => { void handleAddElement(ElementType.SHAPE); } },
+      { label: 'New adjustment layer', action: () => { void handleAddElement(ElementType.ADJUSTMENT); } }
+    ],
+    View: [
+      { label: 'Zoom timeline in', action: () => setPixelsPerSecond(value => Math.min(2000, value * 1.2)) },
+      { label: 'Zoom timeline out', action: () => setPixelsPerSecond(value => Math.max(0.5, value / 1.2)) },
+      { label: 'Fit sequence in timeline', action: fitTimeline }
+    ],
+    Window: [
+      { label: 'Source monitor', action: () => isMobile ? setFloatingPanel('source') : setActiveRightTab('source') },
+      { label: 'Project', action: () => { setActiveLeftBottomTab('project'); if (isMobile) setActiveMobileTab('assets'); } },
+      { label: 'Effects', action: () => isMobile ? setFloatingPanel('effects') : setActiveLeftBottomTab('effects') },
+      { label: 'Effect controls', action: showProperties },
+      { label: 'Color', action: () => { setActiveRightTab('color'); if (isMobile) setActiveMobileTab('properties'); } },
+      { label: 'Audio mixer', action: () => setFloatingPanel('audio') },
+      { label: 'Reset workspace', action: resetWorkspace }
+    ],
+    Help: [{ label: 'Keyboard shortcuts', action: () => setShowKeyboardShortcuts(true) }]
+  };
+
   return (
     <div ref={appRef} className="editor-shell flex flex-col overflow-hidden bg-pp-darkest text-pp-text">
       {/* Premiere Pro Menu Bar */}
       <MenuBar
+        commandMenus={commandMenus}
         onSave={handleSaveProject}
         onLoad={handleLoadProject}
         onExport={() => handleExport()}
@@ -1691,7 +1762,7 @@ function App() {
             <button onClick={() => setActiveMobileTab('assets')}><PlusIcon /> Add media</button>
             <button onClick={() => handleAddElement(ElementType.TEXT)}><span aria-hidden="true">T</span> Add text</button>
             <button onClick={handleSplit} disabled={!project.elements.some(el => project.currentTime > el.startTime && project.currentTime < el.startTime + el.duration)}><ScissorsIcon /> Split</button>
-            <button onClick={() => selectedElement && handleDeleteElement(selectedElement.id)} disabled={!selectedElement}><TrashIcon /> Delete</button>
+            <button onClick={() => handleDeleteSelection()} disabled={!editableSelection.length}><TrashIcon /> Delete</button>
           </div>
 
           {activeMobileTab === 'assets' && (
@@ -1928,10 +1999,6 @@ function App() {
               <ToolsPanel
                 activeTool={toolMode}
                 onToolChange={(tool) => {
-                  if (tool === 'blade') {
-                    handleBladeAction();
-                    return;
-                  }
                   setToolMode(tool);
                 }}
               />
@@ -2004,6 +2071,16 @@ function App() {
           </div>
         </div>
       )}
+
+      {floatingPanel && <PanelDialog title={{ source: 'Source monitor', effects: 'Effects', audio: 'Audio mixer', rename: 'Rename clip' }[floatingPanel]} onClose={() => setFloatingPanel(null)}>
+        {floatingPanel === 'source' && <SourceMonitorPanel clip={sourceClip} onInsertToTimeline={clip => { void handleAddElement(clip.type, { src: clip.src, name: clip.name, assetId: clip.assetId }); }} />}
+        {floatingPanel === 'effects' && <EffectsPanel />}
+        {floatingPanel === 'audio' && <div className="floating-mixer flex justify-center flex-1"><AudioMixerPanel tracks={project.tracks} elements={project.elements} currentTime={project.currentTime} isPlaying={project.isPlaying} onUpdateTrack={(id, updates) => { saveToHistory(); setProject(prev => ({ ...prev, tracks: prev.tracks.map(track => track.id === id ? { ...track, ...updates } : track) })); }} /></div>}
+        {floatingPanel === 'rename' && <form className="p-4 flex flex-col gap-3" onSubmit={event => {
+          event.preventDefault(); if (!selectedElement || !renameValue.trim() || !editableSelection.some(clip => clip.id === selectedElement.id)) return;
+          saveToHistory(); handleUpdateElement(selectedElement.id, { name: renameValue.trim() }); setFloatingPanel(null);
+        }}><label className="flex flex-col gap-2">Clip name<input className="pp-input" value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label><button className="pp-btn self-end" disabled={!renameValue.trim()} type="submit">Rename</button></form>}
+      </PanelDialog>}
 
       <KeyboardShortcutsModal
         isOpen={showKeyboardShortcuts}

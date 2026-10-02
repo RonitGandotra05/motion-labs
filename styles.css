@@ -320,7 +320,7 @@ html:not(.dark) .preview-stage > .preview-empty strong { color: var(--pp-text-br
 .asset-empty { background: var(--pp-bg-medium); }
 .track-target { background: var(--pp-bg-light); color: var(--pp-text-bright); border: 1px solid var(--pp-border-light); border-radius: 4px; box-shadow: none; }
 .track-target:hover { background: var(--pp-bg-lighter); }
-@media (max-width: 1199px) { .asset-toolbar > div > div:nth-child(2) { display: none; } }
+
 @media (max-width: 959px) {
   .monitor-duration { display: none; }
   .monitor-meta { gap: 4px; }
@@ -339,3 +339,21 @@ html:not(.dark) .preview-stage > .preview-empty strong { color: var(--pp-text-br
   .asset-toolbar > span { display: none; }
   .asset-toolbar > div { flex: 1; justify-content: space-between; }
 }
+
+/* Editing commands stay accessible without enlarging the desktop header. */
+.header-menus { flex: 0 1 auto; min-width: 0; }
+.header-menus .header-menu-trigger { padding-inline: 7px; }
+.header-toolbar .shortcut-hint { flex: 0 0 auto; font-size: 0; }
+.header-toolbar .shortcut-hint kbd { font-size: 10px; }
+.header-toolbar .workspace-switcher { margin-left: auto; }
+.editor-dropdown { width: 280px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 100px); overflow-y: auto; }
+.editor-dropdown button { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; }
+.editor-dropdown button small { color: var(--pp-text-dim); white-space: nowrap; font-size: 9px; }
+.editor-dropdown button:disabled { opacity: .45; }
+.floating-panel { max-height: calc(100dvh - 32px); min-height: 160px; }
+.floating-panel:has(.source-monitor), .floating-panel:has(.floating-mixer) { height: min(480px, calc(100dvh - 32px)); }
+.floating-panel .panel-heading { padding-inline: 12px !important; }
+.floating-mixer > div { margin-top: 0; height: 100%; border: 0; }
+.asset-toolbar > div { flex-wrap: wrap; justify-content: flex-end; }
+@container (max-width: 310px) { .asset-toolbar { flex-wrap: wrap; } .asset-toolbar > div { flex: 1; justify-content: space-between; } }
+@media (min-width: 960px) and (max-width: 1199px) { .header-toolbar .workspace-switcher { display: none; } }
