@@ -1641,7 +1641,6 @@ function App() {
         isDarkMode={isDarkMode}
         activeWorkspace={activeRightTab}
         onWorkspaceChange={setActiveRightTab}
-        clipCount={project.elements.length}
       />
 
       {isMobile ? (

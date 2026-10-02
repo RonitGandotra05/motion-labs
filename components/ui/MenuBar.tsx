@@ -14,12 +14,11 @@ interface MenuBarProps {
     isDarkMode: boolean;
     activeWorkspace: 'source' | 'properties' | 'color';
     onWorkspaceChange: (workspace: 'source' | 'properties' | 'color') => void;
-    clipCount: number;
 }
 
 const MenuBar: React.FC<MenuBarProps> = ({
     onSave, onLoad, onExport, onExportAudio, onShowShortcuts, onUndo, onRedo,
-    onOpenSettings, onToggleTheme, isDarkMode, activeWorkspace, onWorkspaceChange, clipCount
+    onOpenSettings, onToggleTheme, isDarkMode, activeWorkspace, onWorkspaceChange
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const headerRef = useRef<HTMLElement>(null);
@@ -80,7 +79,6 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     <img src="/favicon.svg" alt="" width="36" height="36" />
                     <span>motion<span className="brand-light">labs</span><small>YOUR IDEAS, IN MOTION</small></span>
                 </a>
-                <div className="header-project"><span className="project-indicator" /><div><strong>Your creative workspace</strong><small>{clipCount ? `${clipCount} clip${clipCount === 1 ? '' : 's'} in your sequence` : 'A new story starts here'}</small></div></div>
                 <div className="header-actions">
                     <button className="header-button open-project" onClick={onLoad}><FolderOpenIcon className="w-4 h-4" /><span>Open</span></button>
                     <button className="header-button" onClick={onSave} aria-label="Save project"><SaveIcon className="w-4 h-4" /><span className="save-label">Save</span></button>
