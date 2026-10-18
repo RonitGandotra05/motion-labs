@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
 import { Track, EditorElement, Marker } from '../../types';
 import { TIMELINE_TRACK_HEADER_WIDTH } from '../../constants';
 import TimelineTrack from './TimelineTrack';
@@ -102,6 +102,10 @@ const Timeline: React.FC<TimelineProps> = ({
   const [selectedGap, setSelectedGap] = useState<{ trackId: number; gapStart: number; gapEnd: number } | null>(null);
 
   const getTrackRowHeight = (track: Track) => track.type === 'audio' ? 58 : 40;
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const previousZoom = useRef(pixelsPerSecond);
+  const previousContentEnd = useRef(0);
+  const zoomAnchor = useRef<{ time: number; x: number } | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
 
   useEffect(() => {
@@ -163,6 +167,12 @@ const Timeline: React.FC<TimelineProps> = ({
 
   // -- Playhead Logic --
   const handleRulerMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (toolMode === 'zoom') {
+      const viewport = scrollViewportRef.current;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      if (viewport) zoomTo(pixelsPerSecond * (e.altKey ? 1 / 1.5 : 1.5), Math.max(0, clientX - viewport.getBoundingClientRect().left - trackHeaderWidth));
+      return;
+    }
     setIsDraggingPlayhead(true);
     updateTimeFromMouse(e);
   };
@@ -180,6 +190,12 @@ const Timeline: React.FC<TimelineProps> = ({
   const handleElementInteraction = (e: React.MouseEvent | React.TouchEvent, type: DragMode, elementId: string, trackId: number, startTime: number, duration: number, mediaOffset: number) => {
     e.stopPropagation();
     e.preventDefault();
+    if (toolMode === 'zoom') {
+      const viewport = scrollViewportRef.current;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      if (viewport) zoomTo(pixelsPerSecond * (e.altKey ? 1 / 1.5 : 1.5), Math.max(0, clientX - viewport.getBoundingClientRect().left - trackHeaderWidth));
+      return;
+    }
     const clicked = elements.find(clip => clip.id === elementId);
     if (tracks.find(track => track.id === trackId)?.isLocked || (clicked?.groupId && elements.some(clip => clip.groupId === clicked.groupId && tracks.find(track => track.id === clip.trackId)?.isLocked))) return;
 
@@ -448,14 +464,14 @@ const Timeline: React.FC<TimelineProps> = ({
   };
 
   const rulerTicks = [];
-  const contentEndTime = elements.reduce((maxEnd, el) => Math.max(maxEnd, el.startTime + el.duration), duration);
-  const maxTime = Math.max(contentEndTime, 60);
-  const totalWidth = maxTime * pixelsPerSecond + 500;
+  const contentEndTime = elements.reduce((maxEnd, el) => Math.max(maxEnd, el.startTime + el.duration), 0);
+  const maxTime = Math.max(contentEndTime || duration, 1);
+  const totalWidth = Math.max(maxTime * pixelsPerSecond + 80, viewportWidth - trackHeaderWidth);
   const tickInterval = getTickInterval(pixelsPerSecond);
   const maxZoomPps = 2000;
   const minZoomPps = useMemo(() => {
     const drawableWidth = Math.max(140, viewportWidth - trackHeaderWidth - 40);
-    return Math.max(0.5, drawableWidth / maxTime);
+    return Math.max(0.01, Math.min(maxZoomPps, drawableWidth / maxTime));
   }, [maxTime, viewportWidth, trackHeaderWidth]);
 
   useEffect(() => {
@@ -463,6 +479,13 @@ const Timeline: React.FC<TimelineProps> = ({
       setPixelsPerSecond(minZoomPps);
     }
   }, [minZoomPps, pixelsPerSecond, setPixelsPerSecond]);
+
+  useEffect(() => {
+    if (!previousContentEnd.current && contentEndTime > 0 && viewportWidth > 0) {
+      zoomAnchor.current = { time: 0, x: 0 }; setPixelsPerSecond(minZoomPps);
+    }
+    previousContentEnd.current = contentEndTime;
+  }, [contentEndTime, viewportWidth, minZoomPps]);
 
   const toZoomSliderValue = useCallback((pps: number) => {
     if (maxZoomPps <= minZoomPps) return 100;
@@ -478,12 +501,69 @@ const Timeline: React.FC<TimelineProps> = ({
     return Math.max(minZoomPps, Math.min(maxZoomPps, expValue));
   }, [maxZoomPps, minZoomPps]);
 
+  const zoomTo = (pps: number, pointerX?: number) => {
+    const viewport = scrollViewportRef.current;
+    if (viewport && pointerX !== undefined) {
+      zoomAnchor.current = { time: (viewport.scrollLeft + pointerX) / pixelsPerSecond, x: pointerX };
+    }
+    setPixelsPerSecond(Math.max(minZoomPps, Math.min(maxZoomPps, pps)));
+  };
+  useLayoutEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport || previousZoom.current === pixelsPerSecond) return;
+    const oldZoom = previousZoom.current;
+    const width = Math.max(1, viewport.clientWidth - trackHeaderWidth);
+    const playheadX = currentTime * oldZoom - viewport.scrollLeft;
+    const x = playheadX >= 0 && playheadX <= width ? playheadX : width / 2;
+    const anchor = zoomAnchor.current || { time: (viewport.scrollLeft + x) / oldZoom, x };
+    viewport.scrollLeft = Math.max(0, anchor.time * pixelsPerSecond - anchor.x);
+    setScrollLeft(viewport.scrollLeft); previousZoom.current = pixelsPerSecond; zoomAnchor.current = null;
+  }, [pixelsPerSecond, currentTime, trackHeaderWidth]);
+  useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+    const wheel = (event: WheelEvent) => {
+      if (!event.altKey && !event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      zoomTo(pixelsPerSecond * Math.exp(-event.deltaY * 0.01), Math.max(0, event.clientX - viewport.getBoundingClientRect().left - trackHeaderWidth));
+    };
+    const keydown = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]') || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (['+', '=', '-'].includes(event.key)) { event.preventDefault(); zoomTo(pixelsPerSecond * (event.key === '-' ? 1 / 1.3 : 1.3)); }
+      if (event.key === '\\') { event.preventDefault(); zoomAnchor.current = { time: 0, x: 0 }; setPixelsPerSecond(minZoomPps); if (viewport) viewport.scrollLeft = 0; }
+    };
+    viewport.addEventListener('wheel', wheel, { passive: false }); window.addEventListener('keydown', keydown);
+    return () => { viewport.removeEventListener('wheel', wheel); window.removeEventListener('keydown', keydown); };
+  }, [pixelsPerSecond, minZoomPps, trackHeaderWidth]);
+
+  const visibleSeconds = Math.max(1, viewportWidth - trackHeaderWidth) / pixelsPerSecond;
+  const navigatorDuration = Math.max(maxTime, scrollLeft / pixelsPerSecond + visibleSeconds);
+  const navigate = (event: React.PointerEvent, mode: 'pan' | 'start' | 'end') => {
+    event.preventDefault(); event.stopPropagation();
+    const bar = event.currentTarget.closest('[data-timeline-navigator]')!.getBoundingClientRect();
+    const initialX = event.clientX;
+    const from = scrollLeft / pixelsPerSecond;
+    const to = from + visibleSeconds;
+    const move = (moveEvent: PointerEvent) => {
+      const delta = (moveEvent.clientX - initialX) / bar.width * navigatorDuration;
+      const minSpan = Math.max(1, viewportWidth - trackHeaderWidth) / maxZoomPps;
+      const a = mode === 'end' ? from : Math.max(0, Math.min(mode === 'start' ? to - minSpan : navigatorDuration - visibleSeconds, from + delta));
+      const b = mode === 'start' ? to : mode === 'pan' ? a + visibleSeconds : Math.max(from + minSpan, Math.min(navigatorDuration, to + delta));
+      const scale = Math.max(minZoomPps, Math.min(maxZoomPps, (viewportWidth - trackHeaderWidth) / (b - a)));
+      zoomAnchor.current = { time: a, x: 0 }; setPixelsPerSecond(scale);
+      if (scrollViewportRef.current) { scrollViewportRef.current.scrollLeft = a * scale; setScrollLeft(scrollViewportRef.current.scrollLeft); }
+    };
+    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', stop, { once: true });
+  };
+
   const majorTickHeightClass = 'h-[24px]';
   const minorTickHeightClass = 'h-[12px]';
   const minorDivisions = tickInterval < 1 ? 5 : pixelsPerSecond >= 180 ? 10 : pixelsPerSecond >= 80 ? 5 : pixelsPerSecond >= 28 ? 4 : 2;
   const tickCount = Math.ceil(maxTime / tickInterval);
 
-  for (let tickIndex = 0; tickIndex <= tickCount; tickIndex++) {
+  for (let tickIndex = Math.max(0, Math.floor(scrollLeft / pixelsPerSecond / tickInterval) - 1); tickIndex <= Math.min(tickCount, Math.ceil((scrollLeft + viewportWidth) / pixelsPerSecond / tickInterval) + 1); tickIndex++) {
     const i = tickIndex * tickInterval;
     if (i > maxTime) break;
 
@@ -547,7 +627,8 @@ const Timeline: React.FC<TimelineProps> = ({
               Delete Gaps
             </button>
           )}
-          <button onClick={() => setPixelsPerSecond(Math.max(minZoomPps, pixelsPerSecond / 1.18))} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline out" data-tip="Zoom Out">
+          <button className="pp-icon-btn w-[20px] h-[20px]" aria-label="Fit sequence to timeline" data-tip="Fit sequence (\\)" onClick={() => { zoomAnchor.current = { time: 0, x: 0 }; setPixelsPerSecond(minZoomPps); if (scrollViewportRef.current) scrollViewportRef.current.scrollLeft = 0; }}><FitIcon className="w-3 h-3" /></button>
+          <button onClick={() => zoomTo(pixelsPerSecond / 1.3)} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline out" data-tip="Zoom Out">
             <ZoomOutIcon className="w-3 h-3" />
           </button>
           <input
@@ -556,18 +637,18 @@ const Timeline: React.FC<TimelineProps> = ({
             max="100"
             step="0.1"
             value={toZoomSliderValue(pixelsPerSecond)}
-            onChange={(e) => setPixelsPerSecond(fromZoomSliderValue(Number(e.target.value)))}
+            onChange={(e) => zoomTo(fromZoomSliderValue(Number(e.target.value)))}
             className="pp-slider w-16"
             aria-label="Timeline zoom"
-            data-tip="Timeline Zoom Level"
+            data-tip="Timeline zoom (+/−); Alt/Option + wheel zooms at pointer"
           />
-          <button onClick={() => setPixelsPerSecond(Math.min(maxZoomPps, pixelsPerSecond * 1.18))} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline in" data-tip="Zoom In">
+          <button onClick={() => zoomTo(pixelsPerSecond * 1.3)} className="pp-icon-btn w-[20px] h-[20px]" aria-label="Zoom timeline in" data-tip="Zoom In">
             <ZoomInIcon className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      <div ref={scrollViewportRef} className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
+      <div ref={scrollViewportRef} onScroll={event => setScrollLeft(event.currentTarget.scrollLeft)} className="flex-grow relative overflow-x-scroll overflow-y-scroll custom-scrollbar pb-6">
         <div className="relative min-w-full" style={{ width: `${totalWidth + trackHeaderWidth}px` }}>
 
           {/* Ruler - Premiere Pro style */}
@@ -587,7 +668,7 @@ const Timeline: React.FC<TimelineProps> = ({
           >
             {/* Top-Left Fixed Timecode Block */}
             <div
-              className="timeline-ruler-header h-full border-r border-black/40 absolute left-0 bg-[var(--pp-bg-darkest)] z-20 flex flex-col justify-center px-4 pt-1 cursor-default"
+              className="timeline-ruler-header h-full border-r border-black/40 sticky left-0 bg-[var(--pp-bg-darkest)] z-20 flex flex-col justify-center px-4 pt-1 cursor-default"
               style={{ width: `${trackHeaderWidth}px` }}
               onMouseDown={e => e.stopPropagation()}
             >
@@ -716,6 +797,8 @@ const Timeline: React.FC<TimelineProps> = ({
                   className="relative"
                 >
                   <TimelineTrack
+                    viewportStart={scrollLeft}
+                    viewportWidth={Math.max(1, viewportWidth - trackHeaderWidth)}
                     trackHeaderWidth={trackHeaderWidth}
                     selectedElementIds={selectedElementIds}
                     track={track}
@@ -796,6 +879,13 @@ const Timeline: React.FC<TimelineProps> = ({
               />
             )}
           </div>
+        </div>
+      </div>
+
+      <div data-timeline-navigator className="relative h-[16px] flex-shrink-0 bg-pp-darkest border-t border-pp-border" style={{ marginLeft: trackHeaderWidth }} aria-label="Timeline zoom scroll bar">
+        <div className="absolute top-[3px] bottom-[3px] rounded bg-pp-lighter border border-pp-border-light cursor-grab" style={{ left: `${scrollLeft / pixelsPerSecond / navigatorDuration * 100}%`, width: `${Math.min(100, visibleSeconds / navigatorDuration * 100)}%` }} onPointerDown={event => navigate(event, 'pan')}>
+          <button type="button" aria-label="Zoom timeline from start" className="absolute left-0 top-[-3px] bottom-[-3px] w-2 rounded bg-pp-text-dim cursor-ew-resize" onPointerDown={event => navigate(event, 'start')} />
+          <button type="button" aria-label="Zoom timeline from end" className="absolute right-0 top-[-3px] bottom-[-3px] w-2 rounded bg-pp-text-dim cursor-ew-resize" onPointerDown={event => navigate(event, 'end')} />
         </div>
       </div>
 

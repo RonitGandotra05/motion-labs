@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { DownloadIcon, FolderOpenIcon, SaveIcon, SunIcon, MoonIcon } from './Icons';
+import { SunIcon, MoonIcon } from './Icons';
 
 export interface EditorCommand {
     label: string;
@@ -71,10 +71,9 @@ const MenuBar: React.FC<MenuBarProps> = ({
         ...commandMenus,
         More: [
             ...Object.keys(commandMenus).map(name => ({ label: `${name} commands`, action: () => setActiveMenu(name) })),
-            { label: 'Open project', action: onLoad },
+            { label: 'File commands', action: () => setActiveMenu('File') },
             { label: 'Undo', action: onUndo, disabled: commandMenus.Edit?.find(item => item.label === 'Undo')?.disabled },
             { label: 'Redo', action: onRedo, disabled: commandMenus.Edit?.find(item => item.label === 'Redo')?.disabled },
-            { label: 'Export audio', action: onExportAudio },
             { label: 'Keyboard shortcuts', action: onShowShortcuts },
             { label: isDarkMode ? 'Switch to light theme' : 'Switch to dark theme', action: onToggleTheme },
             { label: 'Settings & AI key', action: onOpenSettings }
@@ -104,9 +103,6 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     <span>motion<span className="brand-light">labs</span><small>YOUR IDEAS, IN MOTION</small></span>
                 </a>
                 <div className="header-actions">
-                    <button className="header-button open-project" onClick={onLoad}><FolderOpenIcon className="w-4 h-4" /><span>Open</span></button>
-                    <button className="header-button" onClick={onSave} aria-label="Save project"><SaveIcon className="w-4 h-4" /><span className="save-label">Save</span></button>
-                    <button className="header-button primary" onClick={onExport}><DownloadIcon className="w-4 h-4" /><span>Export</span></button>
                     <button className="header-button theme-button" onClick={onToggleTheme} aria-label={isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}>{isDarkMode ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}</button>
                     {menu('More', '•••')}
                 </div>

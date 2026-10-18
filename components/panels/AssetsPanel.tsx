@@ -809,6 +809,10 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
               {/* Media List / Drop Zone */}
               <div
                 className="flex-1 min-h-[80px] flex flex-col"
+                onClick={event => {
+                  if (!(event.target as HTMLElement).closest('[data-media-asset], button, input, label')) importInputRef.current?.click();
+                }}
+                aria-label="Project media; click empty space to import files"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               >
@@ -821,8 +825,8 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                 {libraryAssets.length === 0 && !importProgress && (
                   <div className="asset-empty">
                     <UploadIcon />
-                    <strong>A home for your footage</strong>
-                    <p>Drop video, audio, or images here. Your next great edit starts with a single clip.</p>
+                    <strong>Import media</strong>
+                    <p>Drop video, audio, or images here, or click to browse.</p>
                     <button className="asset-import" onClick={() => importInputRef.current?.click()}>Choose files</button>
                   </div>
                 )}
@@ -831,6 +835,7 @@ const AssetsPanel: React.FC<AssetsPanelProps> = ({ onAddElement, onPreviewClip, 
                   {filteredAssets.map((asset, index) => (
                     <div
                       key={asset.id}
+                      data-media-asset
                       draggable
                       onDragStart={(e) => handleDragStart(e, asset)}
                       className={

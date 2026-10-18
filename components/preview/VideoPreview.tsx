@@ -1,8 +1,10 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import { EditorElement, ElementType } from '../../types';
+import { EditorElement, ElementType, Track } from '../../types';
+import { audioGainAt, sourceTimeAt } from '../../utils/mediaTiming';
 import MonitorTransport from '../ui/MonitorTransport';
 
 interface VideoPreviewProps {
+  tracks?: Track[];
   onAddMedia?: () => void;
   currentTime: number;
   isPlaying: boolean;
@@ -25,6 +27,7 @@ export interface VideoPreviewHandle {
 
 const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
   currentTime,
+  tracks = [],
   isPlaying,
   elements,
   selectedElementId,
@@ -108,6 +111,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
   // Audio Context Ref
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioSourcesRef = useRef<WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>>(new WeakMap());
   const audioNodesRef = useRef<Map<string, { hp: BiquadFilterNode; lp: BiquadFilterNode; gain: GainNode }>>(new Map());
 
@@ -140,7 +144,11 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       ctx.resume().catch(e => console.error("Audio resume failed", e));
     }
 
-    const mediaElements = document.querySelectorAll('video, audio');
+    const mediaElements = containerRef.current?.querySelectorAll('video, audio') || [];
+    const activeIds = new Set(Array.from(mediaElements).map(el => (el as HTMLMediaElement).dataset.elementId));
+    for (const [id, nodes] of audioNodesRef.current) {
+      if (!activeIds.has(id)) { nodes.hp.disconnect(); nodes.lp.disconnect(); nodes.gain.disconnect(); audioNodesRef.current.delete(id); }
+    }
     mediaElements.forEach((el: any) => {
       const id = el.dataset.elementId;
       const element = elements.find(e => e.id === id);
@@ -148,18 +156,19 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
       if (element) {
         // Time Sync
         if (currentTime >= element.startTime && currentTime <= element.startTime + element.duration) {
-          const targetTime = (currentTime - element.startTime) + element.mediaOffset;
+          const targetTime = sourceTimeAt(element, currentTime);
           if (Math.abs(el.currentTime - targetTime) > 0.3) {
             el.currentTime = targetTime;
           }
-          if (isPlaying && el.paused) {
+          if (isPlaying && !element.props.isReversed && !element.props.isFreezeFrame && el.paused) {
             el.play().catch(() => { });
           } else if (!isPlaying && !el.paused) {
             el.pause();
           }
 
-          // Audio Effects Setup (Web Audio API)
-          if (ctx) {
+          el.muted = element.props.isMuted ?? false;
+          // Muted video lanes do not need a duplicate audio processing graph.
+          if (ctx && !element.props.isMuted) {
             // Create source if not exists
             let source = audioSourcesRef.current.get(el);
             if (!source) {
@@ -200,43 +209,13 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
               if (nodes.hp.frequency.value !== hpFreq) nodes.hp.frequency.value = hpFreq;
               if (nodes.lp.frequency.value !== lpFreq) nodes.lp.frequency.value = lpFreq;
 
-              // Calculate Volume with Ducking
-              let effectiveVolume = element.props.volume ?? 1;
-              if (element.props.isMuted) effectiveVolume = 0;
-
-              // Ducking Logic
-              const activeDuckingSource = elements.find(e =>
-                e.id !== element.id &&
-                (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
-                e.props.ducking &&
-                currentTime >= e.startTime &&
-                currentTime <= e.startTime + e.duration
-              );
-
-              if (activeDuckingSource) {
-                effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
-              }
-
-              // Apply to Gain Node
-              // We use a small ramp to prevent clicks
-              // nodes.gain.gain.setTargetAtTime(effectiveVolume, ctx.currentTime, 0.05); 
-              // Simple assignment is often fine for UI sliders, but setTargetAtTime is better
+              const effectiveVolume = audioGainAt(element, elements, tracks, currentTime);
+              el.muted = false;
               nodes.gain.gain.value = effectiveVolume;
             }
-          } else {
+          } else if (!ctx) {
             // Fallback if Web Audio not supported (Basic Volume/Mute)
-            let effectiveVolume = element.props.volume ?? 1;
-            // ... duplicate ducking logic for fallback ...
-            const activeDuckingSource = elements.find(e =>
-              e.id !== element.id &&
-              (e.type === ElementType.VIDEO || e.type === ElementType.AUDIO) &&
-              e.props.ducking &&
-              currentTime >= e.startTime &&
-              currentTime <= e.startTime + e.duration
-            );
-            if (activeDuckingSource) effectiveVolume *= (activeDuckingSource.props.duckingThreshold ?? 0.2);
-
-            el.volume = effectiveVolume;
+            el.volume = Math.max(0, Math.min(1, audioGainAt(element, elements, tracks, currentTime)));
             el.muted = element.props.isMuted ?? false;
           }
 
@@ -248,8 +227,21 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         }
       }
     });
-  }, [currentTime, isPlaying, elements]);
+  }, [currentTime, isPlaying, elements, tracks]);
 
+
+  useEffect(() => {
+    // React StrictMode replays effects on the same media nodes. Defer disposal so
+    // replay can keep their one-per-element Web Audio sources alive.
+    if (audioCleanupRef.current) clearTimeout(audioCleanupRef.current);
+    return () => {
+      audioCleanupRef.current = setTimeout(() => {
+        audioContextRef.current?.close().catch(() => {});
+        audioContextRef.current = null;
+        audioNodesRef.current.clear();
+      }, 0);
+    };
+  }, []);
 
   const handleElementMouseDown = (e: React.MouseEvent | React.TouchEvent, element: EditorElement) => {
     e.stopPropagation();
@@ -451,7 +443,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
 
   const renderVisualElement = (el: EditorElement) => {
     if (currentTime < el.startTime || currentTime > el.startTime + el.duration) return null;
-    if (el.type === ElementType.AUDIO) return null;
+    if (el.type === ElementType.AUDIO || tracks.find(track => track.id === el.trackId)?.isVisible === false) return null;
 
     const isSelected = selectedElementId === el.id;
 
@@ -682,6 +674,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         {el.type === ElementType.VIDEO && el.props.src && (
           <div style={mediaViewportStyle}>
             <video
+              preload="metadata"
+              playsInline
               data-element-id={el.id}
               src={el.props.src}
               className="w-full h-full"
@@ -771,14 +765,6 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
         ref={stageRef}
         className="preview-stage relative flex flex-1 w-full items-center justify-center overflow-hidden p-4 min-h-0"
       >
-          {elements.length === 0 && (
-            <div className="preview-empty">
-              <div className="empty-symbol"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m9 6 9 6-9 6z" /></svg></div>
-              <strong>Your next story starts here</strong>
-              <p>Add your footage, layer in a little sound, and make something worth watching.</p>
-              {onAddMedia && <button className="preview-start" onClick={(event) => { event.stopPropagation(); onAddMedia(); }}>Add media <span aria-hidden="true">↗</span></button>}
-            </div>
-          )}
         <div
           ref={containerRef}
           className="preview-canvas relative bg-black overflow-hidden"
@@ -796,7 +782,7 @@ const VideoPreview = forwardRef<VideoPreviewHandle, VideoPreviewProps>(({
           {renderMonitorGuides()}
 
           {elements.filter(e => e.type === ElementType.AUDIO && e.props.src).map(el => (
-            <audio key={el.id} data-element-id={el.id} src={el.props.src} />
+            <audio key={el.id} data-element-id={el.id} src={el.props.src} preload="metadata" />
           ))}
 
           {/* Sort by zIndex for proper layering */}

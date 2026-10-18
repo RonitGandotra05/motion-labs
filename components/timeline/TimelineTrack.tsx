@@ -5,6 +5,8 @@ import Waveform from './Waveform';
 
 interface TimelineTrackProps {
   trackHeaderWidth?: number;
+  viewportStart: number;
+  viewportWidth: number;
   selectedElementIds?: string[];
   track: Track;
   elements: EditorElement[];
@@ -23,6 +25,8 @@ interface TimelineTrackProps {
 
 const TimelineTrack: React.FC<TimelineTrackProps> = ({
   track,
+  viewportStart,
+  viewportWidth,
   elements,
   pixelsPerSecond,
   onSelectElement,
@@ -65,7 +69,7 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
     <div className={`flex border-b border-black/40 relative group/track ${isAudioTrack ? 'h-[58px]' : 'h-[40px]'}`} style={{ background: 'var(--pp-bg-dark)' }}>
       {/* Track Header - Premiere Pro style */}
       <div
-        className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header relative bg-[var(--pp-bg-darkest)] border-r border-[var(--pp-border)]"
+        className="pp-track-header flex-shrink-0 flex items-center z-10 select-none group/header sticky left-0 bg-[var(--pp-bg-darkest)] border-r border-[var(--pp-border)]"
         style={{ width: `${trackHeaderWidth}px` }}
       >
 
@@ -252,6 +256,9 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
         {elements.filter(el => el.trackId === track.id).map((el) => {
           const left = el.startTime * pixelsPerSecond;
           const width = el.duration * pixelsPerSecond;
+          const visibleStart = Math.max(0, viewportStart - left);
+          const visibleWidth = Math.max(0, Math.min(width, viewportStart + viewportWidth - left) - visibleStart);
+          if (visibleWidth <= 0) return null;
           const isSelected = selectedElementId === el.id || selectedElementIds.includes(el.id);
 
           return (
@@ -274,6 +281,11 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
                     audioUrl={el.props.src}
                     clipDuration={el.duration}
                     mediaOffset={el.mediaOffset}
+                    pixelsPerSecond={pixelsPerSecond}
+                    visibleStart={visibleStart}
+                    visibleWidth={visibleWidth}
+                    playbackRate={el.props.playbackRate}
+                    isReversed={el.props.isReversed}
                     color="rgba(6, 76, 60, 0.62)"
                   />
                 </div>
@@ -315,4 +327,4 @@ const TimelineTrack: React.FC<TimelineTrackProps> = ({
   );
 };
 
-export default TimelineTrack;
+export default React.memo(TimelineTrack);

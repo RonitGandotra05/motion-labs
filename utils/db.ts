@@ -20,12 +20,16 @@ export interface ProjectData {
   updatedAt: number;
 }
 
+let database: Promise<IDBDatabase> | undefined;
 export const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
+  return database ??= new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => { database = undefined; reject(request.error); };
+    request.onsuccess = () => {
+      request.result.onversionchange = () => { request.result.close(); database = undefined; };
+      resolve(request.result);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;

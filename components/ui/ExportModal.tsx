@@ -21,6 +21,8 @@ interface ExportModalProps {
     audioFormats?: ExportAudioFormatOption[];
     presets: ExportPreset[];
     isExporting: boolean;
+    progress: number;
+    onCancelExport: () => void;
     elements?: EditorElement[];
     tracks?: Track[];
     initialExportType?: 'video' | 'audio';
@@ -36,6 +38,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
     audioFormats,
     presets,
     isExporting,
+    progress,
+    onCancelExport,
     elements = [],
     initialExportType
 }) => {
@@ -110,7 +114,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
     const currentExtension = exportMediaType === 'audio'
         ? `.${selectedAudioFormat?.extension || 'wav'}`
-        : '.webm';
+        : `.${formats.find(format => format.mimeType === formatMimeType)?.extension || 'webm'}`;
 
     const handleExportClick = async () => {
         if (exportMediaType === 'audio') {
@@ -164,6 +168,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                     <div className="mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg flex gap-1">
                         <button
                             type="button"
+                            disabled={isExporting}
                             onClick={() => setExportMediaType('video')}
                             className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
                                 exportMediaType === 'video'
@@ -176,6 +181,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                         </button>
                         <button
                             type="button"
+                            disabled={isExporting}
                             onClick={() => setExportMediaType('audio')}
                             className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
                                 exportMediaType === 'audio'
@@ -195,7 +201,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                     </div>
                 )}
 
-                <div className="space-y-4">
+                <fieldset disabled={isExporting} className="space-y-4">
                     {/* Filename Input */}
                     <div className="space-y-1">
                         <label className="text-xs font-semibold text-gray-500 uppercase">Filename</label>
@@ -384,14 +390,20 @@ const ExportModal: React.FC<ExportModalProps> = ({
                             </div>
                         </>
                     )}
-                </div>
+                </fieldset>
+                {isExporting && (
+                    <div className="mt-4 space-y-2" role="status" aria-live="polite">
+                        <div className="flex justify-between text-xs"><span>{progress >= 0.99 ? 'Finalizing file…' : 'Exporting…'}</span><span>{Math.floor(progress * 100)}%</span></div>
+                        <progress aria-label="Export progress" max={1} value={progress} className="w-full h-2 accent-emerald-500" />
+                    </div>
+                )}
 
                 <div className="mt-6 flex justify-end space-x-3">
                     <button
-                        onClick={onClose}
+                        onClick={isExporting ? onCancelExport : onClose}
                         className="px-4 py-2 rounded text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                     >
-                        Cancel
+                        {isExporting ? 'Cancel export' : 'Cancel'}
                     </button>
                     <button
                         onClick={handleExportClick}

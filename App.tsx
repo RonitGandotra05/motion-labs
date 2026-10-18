@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { LayersIcon, PlusIcon, ScissorsIcon, TrashIcon, VideoIcon, FolderOpenIcon } from './components/ui/Icons';
 import AssetsPanel from './components/panels/AssetsPanel';
 import SettingsPanel from './components/panels/SettingsPanel';
@@ -18,6 +18,7 @@ import { ProjectState, Track, EditorElement, ElementType, ElementProps, Marker }
 import { DEFAULT_TRACKS, INITIAL_DURATION, PIXELS_PER_SECOND_DEFAULT, TIMELINE_TRACK_HEADER_WIDTH } from './constants';
 import { getAssetById, getAssets, saveProjectState, loadProjectState } from './utils/db';
 import { saveProjectToFile, openProjectFilePicker } from './utils/projectFile';
+import { timelineEnd } from './utils/mediaTiming';
 import { historyManager, HistoryState } from './utils/history';
 import KeyboardShortcutsModal from './components/ui/KeyboardShortcutsModal';
 import ExportModal from './components/ui/ExportModal';
@@ -47,6 +48,8 @@ function App() {
   const desktopWorkspaceRef = useRef<HTMLDivElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportInitialType, setExportInitialType] = useState<'video' | 'audio' | undefined>(undefined);
+  const [exportProgress, setExportProgress] = useState(0);
+  const exportController = useRef<AbortController | null>(null);
   const previewRef = useRef<VideoPreviewHandle>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(PIXELS_PER_SECOND_DEFAULT);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -84,8 +87,8 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 960);
   const [previewAspectRatio, setPreviewAspectRatio] = useState('16:9');
   const exportPresets = getExportPresets();
-  const supportedExportFormats = getSupportedExportFormats();
-  const supportedAudioFormats = getSupportedAudioFormats();
+  const supportedExportFormats = useMemo(getSupportedExportFormats, []);
+  const supportedAudioFormats = useMemo(getSupportedAudioFormats, []);
 
   const parseAspectRatio = (ratio: string) => {
     const [width, height] = ratio.split(':').map(Number);
@@ -275,6 +278,7 @@ function App() {
           setProject(prev => ({
             ...prev,
             elements: restoredElements,
+            duration: Math.max(INITIAL_DURATION, timelineEnd(restoredElements)),
             tracks: normalizeTrackTypes(data.tracks.length > 0 ? data.tracks : DEFAULT_TRACKS)
           }));
         }
@@ -291,10 +295,10 @@ function App() {
   useEffect(() => {
     if (isRestoring) return; // Don't save while restoring
 
-    // Save to IndexedDB (async, non-blocking)
-    saveProjectState(project.elements, project.tracks).catch(e => {
-      console.error('Failed to save project to IndexedDB:', e);
-    });
+    const timer = window.setTimeout(() => {
+      saveProjectState(project.elements, project.tracks).catch(e => console.error('Failed to save project to IndexedDB:', e));
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [project.elements, project.tracks, isRestoring]);
 
   // Handle Theme
@@ -322,6 +326,7 @@ function App() {
     const updateLoop = () => {
       const now = performance.now();
       const delta = (now - lastTime) / 1000;
+      if (delta < 1 / 30) { animationFrame = requestAnimationFrame(updateLoop); return; }
       lastTime = now;
 
       if (project.isPlaying) {
@@ -614,7 +619,7 @@ function App() {
 
       if (e.key === '-' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setPixelsPerSecond(prev => Math.max(prev / 1.2, 0.5));
+        setPixelsPerSecond(prev => Math.max(prev / 1.2, 0.01));
         return;
       }
 
@@ -788,26 +793,15 @@ function App() {
 
     return new Promise(resolve => {
       const media = document.createElement(type === ElementType.AUDIO ? 'audio' : 'video');
-      media.preload = 'auto'; // Use 'auto' instead of 'metadata' to ensure full duration is available
-
-      let resolved = false;
-      const tryResolve = () => {
-        if (resolved) return;
-        const d = media.duration;
-        if (Number.isFinite(d) && d > 0) {
-          resolved = true;
-          resolve(d);
-        }
+      media.preload = 'metadata';
+      const finish = (value: number | null) => {
+        clearTimeout(timeout); media.onloadedmetadata = media.ondurationchange = media.onerror = null;
+        media.removeAttribute('src'); media.load(); resolve(value);
       };
-
-      media.onloadedmetadata = tryResolve;
-      media.ondurationchange = tryResolve; // Some formats report duration later
-      media.oncanplaythrough = tryResolve; // Fallback: once fully buffered
-      media.onerror = () => { if (!resolved) { resolved = true; resolve(null); } };
-
-      // Timeout safety: if duration not available after 10s, resolve null
-      setTimeout(() => { if (!resolved) { resolved = true; resolve(null); } }, 10000);
-
+      const timeout = window.setTimeout(() => finish(null), 10000);
+      const tryResolve = () => { if (Number.isFinite(media.duration) && media.duration > 0) finish(media.duration); };
+      media.onloadedmetadata = media.ondurationchange = tryResolve;
+      media.onerror = () => finish(null);
       media.src = src;
     });
   };
@@ -833,21 +827,24 @@ function App() {
           (((video as any).webkitAudioDecodedByteCount ?? 0) > 0) ||
           (((video as any).audioTracks?.length ?? 0) > 0);
 
-        resolve({
+        const metadata = {
           duration: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null,
           width: video.videoWidth || null,
           height: video.videoHeight || null,
           hasAudio
-        });
+        };
+        clearTimeout(timeout); video.onloadedmetadata = video.oncanplay = video.onerror = null;
+        video.removeAttribute('src'); video.load();
+        resolve(metadata);
       };
 
+      const timeout = window.setTimeout(finish, 4000);
       video.preload = 'metadata';
       video.muted = true;
       video.src = src;
       video.onloadedmetadata = finish;
       video.oncanplay = finish;
       video.onerror = finish;
-      setTimeout(finish, 4000);
     });
   };
 
@@ -1517,51 +1514,39 @@ function App() {
   };
 
   const startExport = async (options: ExportOptions) => {
+    if (exportController.current) return;
     const isAudioExport = options.mediaType === 'audio';
-
+    const duration = timelineEnd(project.elements);
+    if (duration <= 0) return;
     if (!isAudioExport && supportedExportFormats.length === 0) {
-      alert('This browser does not support video export with MediaRecorder.');
+      alert('Video export requires a browser with WebCodecs support, such as a recent Chrome, Edge, or Safari.');
       return;
     }
-
+    const controller = new AbortController();
+    exportController.current = controller;
+    setExportProgress(0);
     try {
-      setProject(prev => ({ ...prev, isExporting: true, isPlaying: false, currentTime: 0 }));
-
+      setProject(prev => ({ ...prev, isExporting: true, isPlaying: false }));
       if (isAudioExport) {
         await exportProjectAudio({
-          elements: project.elements,
-          tracks: project.tracks,
-          duration: project.duration,
-          options: {
-            filename: options.filename,
-            formatId: options.audioFormatId || 'wav',
-            mimeType: options.mimeType || 'audio/wav',
-            sampleRate: options.sampleRate || 48000,
-            channels: options.channels || 2,
-            bitrateKbps: options.bitrateKbps || 256
-          },
-          onProgress: (progress) => {
-            setProject(prev => ({ ...prev, currentTime: progress * project.duration }));
-          }
+          elements: project.elements, tracks: project.tracks, duration, signal: controller.signal,
+          options: { filename: options.filename, formatId: options.audioFormatId || 'wav', mimeType: options.mimeType || 'audio/wav', sampleRate: options.sampleRate || 48000, channels: options.channels || 2, bitrateKbps: options.bitrateKbps || 256 },
+          onProgress: setExportProgress
         });
       } else {
         await exportProjectVideo({
-          elements: project.elements,
-          duration: project.duration,
-          aspectRatio: previewAspectRatio,
-          options,
-          onProgress: (currentTime) => {
-            setProject(prev => ({ ...prev, currentTime }));
-          }
+          elements: project.elements, tracks: project.tracks, duration, signal: controller.signal,
+          aspectRatio: previewAspectRatio, options,
+          onProgress: time => setExportProgress(time / duration)
         });
       }
-
-      setIsExportModalOpen(false);
-      setExportInitialType(undefined);
+      setIsExportModalOpen(false); setExportInitialType(undefined);
     } catch (error) {
-      console.error(error);
-      alert(error instanceof Error ? error.message : 'Export failed.');
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.error(error); alert(error instanceof Error ? error.message : 'Export failed.');
+      }
     } finally {
+      exportController.current = null;
       setProject(prev => ({ ...prev, isExporting: false, isPlaying: false }));
     }
   };
@@ -1630,7 +1615,7 @@ function App() {
   const fitTimeline = () => {
     const width = document.querySelector('.timeline-panel')?.clientWidth || window.innerWidth;
     const end = Math.max(1, ...project.elements.map(clip => clip.startTime + clip.duration));
-    setPixelsPerSecond(Math.max(0.5, Math.min(2000, (width - (isMobile ? 156 : TIMELINE_TRACK_HEADER_WIDTH) - 40) / end)));
+    setPixelsPerSecond(Math.max(0.01, Math.min(2000, (width - (isMobile ? 156 : TIMELINE_TRACK_HEADER_WIDTH) - 40) / end)));
   };
   const resetWorkspace = () => {
     setLeftPanelWidth(340); setTimelineHeight(Math.min(340, Math.max(180, window.innerHeight * 0.38)));
@@ -1678,7 +1663,7 @@ function App() {
     ],
     View: [
       { label: 'Zoom timeline in', action: () => setPixelsPerSecond(value => Math.min(2000, value * 1.2)) },
-      { label: 'Zoom timeline out', action: () => setPixelsPerSecond(value => Math.max(0.5, value / 1.2)) },
+      { label: 'Zoom timeline out', action: () => setPixelsPerSecond(value => Math.max(0.01, value / 1.2)) },
       { label: 'Fit sequence in timeline', action: fitTimeline }
     ],
     Window: [
@@ -1740,6 +1725,7 @@ function App() {
           {/* Mobile Preview */}
           <div className="compact-preview h-[40vh] shrink-0 border-b border-black/30 flex flex-col bg-pp-darkest relative min-w-0">
             <VideoPreview
+              tracks={project.tracks}
               ref={previewRef}
               currentTime={project.currentTime}
               isPlaying={project.isPlaying}
@@ -1927,6 +1913,7 @@ function App() {
                 </div>
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <VideoPreview
+                    tracks={project.tracks}
                     ref={previewRef}
                     currentTime={project.currentTime}
                     isPlaying={project.isPlaying}
@@ -2094,7 +2081,9 @@ function App() {
           setExportInitialType(undefined);
         }}
         onExport={startExport}
-        duration={project.duration}
+        progress={exportProgress}
+        onCancelExport={() => exportController.current?.abort()}
+        duration={timelineEnd(project.elements)}
         aspectRatio={previewAspectRatio}
         formats={supportedExportFormats}
         audioFormats={supportedAudioFormats}
